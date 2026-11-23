@@ -91,9 +91,19 @@ test("settings: dados públicos sem taxa, GET autenticado, PUT só ADMIN e valid
       ).statusCode,
       401,
     );
+    assert.equal(
+      (await app.inject({ url: "/api/v1/settings", headers: employee }))
+        .statusCode,
+      403,
+    );
     assert.deepEqual(
-      (await app.inject({ url: "/api/v1/settings", headers: employee })).json(),
-      initial,
+      (
+        await app.inject({
+          url: "/api/v1/settings/operation",
+          headers: employee,
+        })
+      ).json(),
+      { dayCutoffHour: 5, serviceFeeRate: 10 },
     );
     assert.equal(
       (
@@ -114,7 +124,7 @@ test("settings: dados públicos sem taxa, GET autenticado, PUT só ADMIN e valid
         headers: admin,
         payload: {
           serviceFeeRate: rate,
-          name: "  Mesa Flow  ",
+          name: "  iServi  ",
           address: " ",
           openingHours: "  18h–23h ",
           contact: null,
@@ -123,7 +133,7 @@ test("settings: dados públicos sem taxa, GET autenticado, PUT só ADMIN e valid
       assert.equal(response.statusCode, 200, response.body);
       assert.deepEqual(response.json(), {
         serviceFeeRate: rate,
-        name: "Mesa Flow",
+        name: "iServi",
         address: null,
         openingHours: "18h–23h",
         contact: null,
@@ -214,7 +224,13 @@ test("banner: upload só por admin ativo, imagem pública e rollback preserva ba
         repository: {
           get: async () => saved,
           save: async (data) => {
-            saved = { ...saved, ...data };
+            if (failSave) throw Error("save failed");
+            const { removeBanner, ...settings } = data;
+            saved = {
+              ...saved,
+              ...settings,
+              ...(removeBanner && { bannerImageUrl: null }),
+            };
             return saved;
           },
           saveBannerImage: async (url) => {
@@ -254,6 +270,15 @@ test("banner: upload só por admin ativo, imagem pública e rollback preserva ba
       payload:
         '--banner\r\nContent-Disposition: form-data; name="image"; filename="banner.png"\r\nContent-Type: image/png\r\n\r\nimage-bytes\r\n--banner--\r\n',
     });
+  const remove = (headers: Record<string, string> = admin) =>
+    app.inject({ method: "DELETE", url: "/api/v1/settings/banner", headers });
+  const saveRemoval = () =>
+    app.inject({
+      method: "PUT",
+      url: "/api/v1/settings",
+      headers: admin,
+      payload: { ...initial, name: "Bistrô da Praça", removeBanner: true },
+    });
   try {
     assert.equal((await upload({})).statusCode, 401);
     assert.equal((await upload(employee)).statusCode, 403);
@@ -268,9 +293,29 @@ test("banner: upload só por admin ativo, imagem pública e rollback preserva ba
     assert.equal((await upload()).statusCode, 500);
     assert.equal(saved.bannerImageUrl, "/uploads/products/new-1.webp");
     assert.equal(deleted.at(-1), "/uploads/products/new-2.webp");
+    assert.equal((await remove({})).statusCode, 401);
+    assert.equal((await remove(employee)).statusCode, 403);
+    assert.equal((await remove()).statusCode, 500);
+    assert.equal((await saveRemoval()).statusCode, 500);
+    assert.equal(deleted.length, 2);
+    assert.equal(saved.bannerImageUrl, "/uploads/products/new-1.webp");
     active = false;
     assert.equal((await upload()).statusCode, 403);
+    assert.equal((await remove()).statusCode, 403);
     assert.equal(uploads, 2);
+    active = true;
+    failSave = false;
+    const removal = await saveRemoval();
+    assert.equal(removal.statusCode, 200);
+    assert.equal(removal.json().bannerImageUrl, null);
+    assert.equal(
+      (await app.inject({ url: "/api/v1/settings/public" })).json()
+        .bannerImageUrl,
+      null,
+    );
+    assert.equal(deleted.at(-1), "/uploads/products/new-1.webp");
+    assert.equal((await remove()).statusCode, 200);
+    assert.equal(deleted.length, 3);
   } finally {
     await app.close();
   }

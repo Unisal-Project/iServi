@@ -1,3 +1,4 @@
+import { canManageRestaurant } from "@/routers/admin-access";
 import { useState } from "react";
 import { ProfileForm } from "./components/ProfileForm";
 import { AdminSidebar } from "@/components";
@@ -12,7 +13,7 @@ type SettingsProps = { onNavigate: (id: string) => void };
 export default function Settings({ onNavigate }: SettingsProps) {
   const [, refreshProfile] = useState(0);
   const user = getSession()?.user;
-  const editable = user?.role === "ADMIN";
+  const editable = canManageRestaurant(user?.role);
   const settings = useRestaurantSettings(editable);
   return (
     <div className="settings-page">

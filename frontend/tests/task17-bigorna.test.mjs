@@ -30,7 +30,7 @@ test('novos pedidos: sino ignora cancelados/pagos e guarda vistos, storage indis
 });
 test('perfil atualiza sessão preservando token sem logout',async()=>{
  const accessToken='header.'+btoa(JSON.stringify({exp:Math.floor(Date.now()/1000)+3600}))+'.sig';
- storage.set('mesaflow.session',JSON.stringify({accessToken,user:{id:'1',name:'Ana',email:'ana@example.com',role:'ADMIN'}}));
+ storage.set('iservi.session',JSON.stringify({accessToken,user:{id:'1',name:'Ana',email:'ana@example.com',role:'ADMIN'}}));
  let request;
  globalThis.fetch=async(_url,options)=>{request=options;return Response.json({id:'1',name:'Ana Nova',email:'ana@example.com',role:'ADMIN'});};
  await auth.updateProfile({name:'Ana Nova'});
@@ -40,14 +40,14 @@ test('perfil atualiza sessão preservando token sem logout',async()=>{
 
 test('vistos não atravessam usuários no mesmo navegador',()=>{
  const token='h.'+btoa(JSON.stringify({exp:Math.floor(Date.now()/1000)+3600}))+'.s';
- storage.set('mesaflow.session',JSON.stringify({accessToken:token,user:{id:'another',role:'ADMIN'}}));
+ storage.set('iservi.session',JSON.stringify({accessToken:token,user:{id:'another',role:'ADMIN'}}));
  notifications.newOrderNotifications([]); // primeira visita deste usuário: nada existente
  assert.equal(notifications.newOrderNotifications([{id:'9',status:'PENDING',attendance:{status:'OPEN'},table:{number:1}}]).length,1);
 });
 
 test('semente marca também pedidos de contas fechadas: reabrir não vira "pedido novo"', () => {
  const token = 'h.' + btoa(JSON.stringify({exp: Math.floor(Date.now()/1000)+3600})) + '.s';
- storage.set('mesaflow.session', JSON.stringify({accessToken: token, user: {id: 'reopen-user', role: 'ADMIN'}}));
+ storage.set('iservi.session', JSON.stringify({accessToken: token, user: {id: 'reopen-user', role: 'ADMIN'}}));
  const closed = {id: '70', status: 'PENDING', createdAt: '2026-11-16T01:00:00Z', attendance: {status: 'CLOSED'}, table: {number: 2}};
  assert.equal(notifications.newOrderNotifications([closed]).length, 0); // primeira visita: semente
  assert.equal(notifications.newOrderNotifications([{...closed, attendance: {status: 'OPEN'}}]).length, 0, 'conta reaberta não notifica pedido antigo');
@@ -57,9 +57,9 @@ test('semente marca também pedidos de contas fechadas: reabrir não vira "pedid
 test('sem localStorage: o primeiro pedido novo após a semente vazia notifica', () => {
  const original = globalThis.localStorage;
  const token = 'h.' + btoa(JSON.stringify({exp: Math.floor(Date.now()/1000)+3600})) + '.s';
- storage.set('mesaflow.session', JSON.stringify({accessToken: token, user: {id: 'private-user', role: 'ADMIN'}}));
- const session = storage.get('mesaflow.session');
- globalThis.localStorage = {getItem: (k) => { if (k === 'mesaflow.session') return session; throw Error('blocked'); }, setItem() { throw Error('blocked'); }};
+ storage.set('iservi.session', JSON.stringify({accessToken: token, user: {id: 'private-user', role: 'ADMIN'}}));
+ const session = storage.get('iservi.session');
+ globalThis.localStorage = {getItem: (k) => { if (k === 'iservi.session') return session; throw Error('blocked'); }, setItem() { throw Error('blocked'); }};
  try {
   assert.equal(notifications.newOrderNotifications([]).length, 0); // semente vazia
   assert.equal(notifications.newOrderNotifications([{id: '80', status: 'PENDING', attendance: {status: 'OPEN'}, table: {number: 1}}]).length, 1);
@@ -67,7 +67,7 @@ test('sem localStorage: o primeiro pedido novo após a semente vazia notifica', 
 });
 
 test('B11: reabrir conta antiga em outro aparelho não vira "pedido novo" (anterior a ontem)',()=>{
- storage.set('mesaflow.session',JSON.stringify({accessToken:'h.'+btoa(JSON.stringify({exp:Math.floor(Date.now()/1000)+3600}))+'.s',user:{id:'reopen-user',role:'ADMIN'}}));
+ storage.set('iservi.session',JSON.stringify({accessToken:'h.'+btoa(JSON.stringify({exp:Math.floor(Date.now()/1000)+3600}))+'.s',user:{id:'reopen-user',role:'ADMIN'}}));
  notifications.newOrderNotifications([]); // primeira visita (semente vazia)
  const today=new Date().toISOString().slice(0,10);
  const old={id:'900',status:'PENDING',businessDate:'2020-01-01',attendance:{status:'OPEN'},table:{number:1}};

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { resolveTable, type TableIdentity } from "@/services/tables.service";
 
-export const customerStorageKey = (token: string) => `mesaflow:customer:${token}`;
+export const customerStorageKey = (token: string) => `iservi:customer:${token}`;
 export const tableLabel = (table: TableIdentity) => `Mesa ${String(table.number).padStart(2, "0")}`;
 
 export function readCustomerName(token: string) {
@@ -14,10 +14,14 @@ export function storeCustomerName(token: string, name: string) {
   catch { /* A navegação continua quando o armazenamento está indisponível. */ }
 }
 
-const ClientTableContext = createContext({ tableLabel: "MesaFlow", guestName: "", setGuestName: (_name: string) => {} });
+const ClientTableContext = createContext({ tableLabel: "iServi", guestName: "", setGuestName: (_name: string) => {}, registerPaymentSession: (_session: string) => {} });
 export const useClientTable = () => useContext(ClientTableContext);
 
-export function ClientTableProvider({ token, children }: { token: string; children: ReactNode }) {
+export function ClientTableProvider({ token, children, registerPaymentSession = () => {} }: {
+  token: string;
+  children: ReactNode;
+  registerPaymentSession?: (session: string) => void;
+}) {
   const [guestName, updateGuestName] = useState(() => readCustomerName(token));
   const [table, setTable] = useState<TableIdentity | null>(null);
   const [error, setError] = useState("");
@@ -42,5 +46,5 @@ export function ClientTableProvider({ token, children }: { token: string; childr
   if (token && error) return <main className="mf-screen"><h1>Não foi possível identificar a mesa</h1><p role="alert">{error}</p><button type="button" onClick={() => { setError(""); setTable(null); setAttempt(value => value + 1); }}>Tentar novamente</button></main>;
   if (token && !table) return <main className="mf-screen" role="status">Identificando sua mesa…</main>;
 
-  return <ClientTableContext.Provider value={{ tableLabel: table ? tableLabel(table) : "MesaFlow", guestName, setGuestName }}>{children}</ClientTableContext.Provider>;
+  return <ClientTableContext.Provider value={{ tableLabel: table ? tableLabel(table) : "iServi", guestName, setGuestName, registerPaymentSession }}>{children}</ClientTableContext.Provider>;
 }

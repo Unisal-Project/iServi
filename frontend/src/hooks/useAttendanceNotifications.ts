@@ -33,7 +33,7 @@ export function notificationTitle(item: NotificationRef) {
 // Avisos temporários não se repetem ao trocar de tela ou recarregar a página.
 const announcedByUser = new Map<string, Set<string>>();
 export function takeUnannouncedNotifications<T extends NotificationRef>(items: T[]): T[] {
-  const key = `mesaflow.announcedNotifications.${getSession()?.user.id ?? "local"}`;
+  const key = `iservi.announcedNotifications.${getSession()?.user.id ?? "local"}`;
   const announced = announcedByUser.get(key) ?? new Set<string>();
   try {
     for (const value of JSON.parse(sessionStorage.getItem(key) ?? "[]")) announced.add(value);
@@ -51,7 +51,7 @@ const memorySeen = () => {
   if (!seenByUser.has(key)) seenByUser.set(key, new Set());
   return seenByUser.get(key)!;
 };
-const seenKey = () => `mesaflow.seenOrders.${getSession()?.user.id ?? "local"}`;
+const seenKey = () => `iservi.seenOrders.${getSession()?.user.id ?? "local"}`;
 export function seenOrderIds(): Set<string> {
   try { return new Set([...memorySeen(), ...JSON.parse(localStorage.getItem(seenKey()) ?? "[]")]); }
   catch { return new Set(memorySeen()); }
@@ -97,7 +97,7 @@ export function newOrderNotifications(orders: AdminOrderSummary[]) {
 type NotificationRef = { id: string; status: string; closingRequestedAt?: string };
 type KeyStore = "readNotifications" | "dismissedNotifications";
 const memoryKeys = new Map<string, Set<string>>();
-const storeKey = (store: KeyStore) => `mesaflow.${store}.${getSession()?.user.id ?? "local"}`;
+const storeKey = (store: KeyStore) => `iservi.${store}.${getSession()?.user.id ?? "local"}`;
 // Inclui o horário: o id de conta solicitada/cancelada é o do ATENDIMENTO, que se repete
 // (ex.: conta reaberta e pedida de novo) — sem o horário a nova nunca apareceria.
 export const notificationKey = (item: NotificationRef) =>

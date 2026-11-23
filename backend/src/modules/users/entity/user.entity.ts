@@ -1,4 +1,4 @@
-export type UserRole = "ADMIN" | "EMPLOYEE";
+export type UserRole = "ADMIN" | "EMPLOYEE" | "PLATFORM_ADMIN";
 
 export type UserEntity = {
   id: bigint;

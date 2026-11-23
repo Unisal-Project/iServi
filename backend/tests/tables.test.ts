@@ -183,6 +183,20 @@ test("creation assigns unique tokens; editing preserves the QR URL", async () =>
   assert.notEqual(first.menuUrl, second.menuUrl);
 });
 
+test("changing the public origin keeps the token of an existing table", async () => {
+  const { service, repository, row } = fixture();
+  const id = { id: row().id };
+  const previous = new URL((await service.getTableById(id)).menuUrl);
+  const staging = new TableService(repository, "https://staging.iservi.com.br");
+  const current = new URL((await staging.getTableById(id)).menuUrl);
+
+  assert.equal(current.origin, "https://staging.iservi.com.br");
+  assert.equal(current.pathname, previous.pathname);
+  assert.equal(current.searchParams.get("mesa"), "existing-token");
+  assert.equal(current.search, previous.search);
+  assert.notDeepEqual(await staging.getQrCode(id), await service.getQrCode(id));
+});
+
 test("token lookup returns only identity and rejects missing or inactive tables", async () => {
   const { service, row } = fixture();
   assert.deepEqual(await service.getTableByToken("existing-token"), {
@@ -406,6 +420,7 @@ test("HTTP routes return PNG, identity, 404 and validation errors", async () => 
     const qr = await app.inject("/tables/9007199254740993/qrcode");
     assert.equal(qr.statusCode, 200);
     assert.equal(qr.headers["content-type"], "image/png");
+    assert.equal(qr.headers["cache-control"], "no-store");
     assert.equal(
       qr.rawPayload.subarray(0, 8).toString("hex"),
       "89504e470d0a1a0a",

@@ -10,12 +10,15 @@ import {
 import Login from "@/pages/admin/Login";
 import ResetPassword from "@/pages/admin/ResetPassword";
 import { getSession } from "@/services/auth.service";
+import { adminHome, canAccessAdminPath } from "./admin-access";
 import { AdminRoutes } from "./AdminRoutes";
 import { ClientRoutes } from "./ClientRoutes";
 
 function LoginRoute() {
   const navigate = useNavigate();
-  return <Login onEnter={() => navigate("/admin/dashboard")} />;
+  const session = getSession();
+  if (session) return <Navigate to={adminHome(session.user.role)} replace />;
+  return <Login onEnter={() => navigate(adminHome(getSession()?.user.role), { replace: true })} />;
 }
 
 function ResetPasswordRoute() {
@@ -24,7 +27,13 @@ function ResetPasswordRoute() {
 }
 
 export function RequireAuth({ children }: { children: ReactNode }) {
-  return getSession() ? children : <Navigate to="/login" replace />;
+  const { pathname } = useLocation();
+  const session = getSession();
+  if (!session) return <Navigate to="/login" replace />;
+  if (!canAccessAdminPath(session.user.role, pathname)) {
+    return <Navigate to={adminHome(session.user.role)} replace />;
+  }
+  return children;
 }
 
 function EntryRoute() {

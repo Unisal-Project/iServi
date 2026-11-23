@@ -6,8 +6,8 @@ export const swaggerPlugin = async (fastify: FastifyInstance) => {
   await fastify.register(fastifySwagger, {
     openapi: {
       info: {
-        title: "MesaFlow API",
-        description: "Documentação da API do MesaFlow",
+        title: "iServi API",
+        description: "Documentação da API do iServi",
         version: "1.0.0",
       },
       servers: [{ url: "http://localhost:3333" }],

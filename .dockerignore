@@ -1,7 +1,8 @@
 .git
-.env
-.env.*
-production.env
+**/.env
+**/.env.*
+**/production.env
+**/.cloudflared
 node_modules
 **/node_modules
 **/dist

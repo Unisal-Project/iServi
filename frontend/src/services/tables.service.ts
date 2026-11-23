@@ -4,7 +4,7 @@ export type TableIdentity = { id: string; number: number; name: string | null };
 export type TableStatus = "available" | "occupied" | "closing_requested" | "awaiting_payment";
 export type TableRecord = TableIdentity & {
   active: boolean;
-  menuUrl: string;
+  menuUrl?: string;
   status: TableStatus;
   attendanceId: string | null;
   seats: number;

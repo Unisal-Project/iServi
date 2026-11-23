@@ -1,10 +1,34 @@
-name: mesaflow-staging
+name: iservi-staging
 
 services:
   database:
+    environment:
+      MARIADB_ROOT_PASSWORD: ${STAGING_MARIADB_ROOT_PASSWORD:?Defina STAGING_MARIADB_ROOT_PASSWORD}
+      MARIADB_PASSWORD: ${STAGING_MARIADB_PASSWORD:?Defina STAGING_MARIADB_PASSWORD}
     volumes:
-      - ./mesaflow_schema_v1.sql:/docker-entrypoint-initdb.d/001-mesaflow-schema.sql:ro,Z
+      - ./iservi_schema_v1.sql:/docker-entrypoint-initdb.d/001-iservi-schema.sql:ro,Z
+      - ./backend/prisma/sql/push-subscriptions.sql:/docker-entrypoint-initdb.d/002-push-subscriptions.sql:ro,Z
+
+  backend:
+    environment:
+      DATABASE_URL: ${STAGING_DATABASE_URL:?Defina STAGING_DATABASE_URL}
+      JWT_SECRET: ${STAGING_JWT_SECRET:?Defina STAGING_JWT_SECRET}
+      FRONTEND_URL: ${STAGING_FRONTEND_URL:-https://staging.iservi.com.br}
+      VALKEY_URL: ${STAGING_VALKEY_URL:-redis://valkey:6379}
+      VAPID_PUBLIC_KEY: ${STAGING_VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${STAGING_VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${STAGING_VAPID_SUBJECT:-}
 
   nginx:
     ports: !override
       - "127.0.0.1:8080:80"
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.7
+    profiles: [tunnel]
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${STAGING_CLOUDFLARE_TUNNEL_TOKEN:-}
+    restart: unless-stopped
+    depends_on:
+      - nginx

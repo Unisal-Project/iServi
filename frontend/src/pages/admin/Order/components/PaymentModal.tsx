@@ -14,7 +14,7 @@ import {
 import type { PaymentMethod, CompletedPayment } from "../types/order.types";
 import { currentBusinessDate, orderNumber, parseAmount } from "../utils/order.utils";
 
-import { fetchSettings } from "@/services/settings.service";
+import { fetchOperationalSettings } from "@/services/settings.service";
 import { Button, SkeletonCard, SystemMessage } from "@/components";
 
 type PaymentDraft = {
@@ -76,7 +76,7 @@ export function PaymentModal(props: PaymentModalProps) {
   const pendingRef = useRef<HTMLDialogElement>(null);
   const reload = useCallback(async () => {
     setError("");
-    try { setRate((await fetchSettings()).serviceFeeRate); }
+    try { setRate((await fetchOperationalSettings()).serviceFeeRate ?? null); }
     catch (err) { setError(err instanceof Error ? err.message : "Não foi possível carregar a taxa de serviço."); }
   }, []);
   useEffect(() => { void Promise.resolve().then(reload); }, [reload]);

@@ -120,16 +120,16 @@ test("registration and login issue employee JWT without exposing password hash",
   await app.close();
 });
 
-test("users can only be created through auth registration; user management requires admin", async () => {
+test("users can only be created through auth registration; user management requires platform admin", async () => {
   const app = Fastify();
   app.setErrorHandler(errorHandler);
   await app.register(fastifyJwt, { secret: "test-secret" });
   const repository = makeRepository();
   await repository.create({
-    name: "Admin",
+    name: "Nupify",
     email: "admin@example.com",
     passwordHash: "unused",
-    role: "ADMIN",
+    role: "PLATFORM_ADMIN",
   });
   await app.register(registerAuthRoutes, { repository });
   await app.register(registerUserRoutes, { repository });
@@ -150,7 +150,7 @@ test("users can only be created through auth registration; user management requi
   const admin = app.jwt.sign({
     id: "1",
     email: "admin@example.com",
-    role: "ADMIN",
+    role: "PLATFORM_ADMIN",
   });
   const headers = { authorization: `Bearer ${admin}` };
   const blocked = await app.inject({
@@ -172,7 +172,7 @@ test("users can only be created through auth registration; user management requi
   const forged = app.jwt.sign({
     id: "2",
     email: "bob@example.com",
-    role: "ADMIN",
+    role: "PLATFORM_ADMIN",
   });
   assert.equal(
     (
@@ -224,7 +224,7 @@ test("users can only be created through auth registration; user management requi
     (await app.inject({ method: "GET", url: "/users", headers })).statusCode,
     403,
   );
-  await repository.update(1n, { role: "ADMIN", active: false });
+  await repository.update(1n, { role: "PLATFORM_ADMIN", active: false });
   assert.equal(
     (await app.inject({ method: "GET", url: "/users", headers })).statusCode,
     401,
@@ -428,15 +428,15 @@ test("desativar ou mudar o perfil derruba as sessões do usuário", async () => 
   await app.register(fastifyJwt, { secret: "test-secret" });
   const repository = makeRepository();
   await repository.create({
-    name: "Admin",
+    name: "Nupify",
     email: "admin@example.com",
     passwordHash: "unused",
-    role: "ADMIN",
+    role: "PLATFORM_ADMIN",
   });
   await app.register(registerAuthRoutes, { repository });
   await app.register(registerUserRoutes, { repository });
   const sign = (id: bigint) =>
-    `Bearer ${app.jwt.sign({ id: String(id), email: "x@x.com", role: "ADMIN", tv: 0 })}`;
+    `Bearer ${app.jwt.sign({ id: String(id), email: "x@x.com", role: "PLATFORM_ADMIN", tv: 0 })}`;
   const anaToken = (
     await app.inject({
       method: "POST",
@@ -470,6 +470,106 @@ test("desativar ou mudar o perfil derruba as sessões do usuário", async () => 
     // DELETE (desativar) também sobe a versão.
     await app.inject({ method: "DELETE", url: "/users/2", headers: asAdmin });
     assert.equal((await repository.findById(2n))?.tokenVersion, 2);
+  } finally {
+    await app.close();
+  }
+});
+
+test("all three profiles can log in, and only platform staff can manage restaurant accounts", async () => {
+  const { requireApiAuthentication } =
+    await import("../src/shared/api-access.js");
+  const { BcryptPasswordHasher } =
+    await import("../src/config/hash/bcrypt-password-hasher.js");
+  const repository = makeRepository();
+  const password = "Senha@123";
+  const passwordHash = await new BcryptPasswordHasher().createHasher(password);
+  const roles = ["ADMIN", "EMPLOYEE", "PLATFORM_ADMIN"] as const;
+  for (const role of roles) {
+    await repository.create({
+      name: role,
+      email: `${role.toLowerCase()}@example.com`,
+      role,
+      passwordHash,
+    });
+  }
+  const app = Fastify();
+  app.setErrorHandler(errorHandler);
+  await app.register(fastifyJwt, { secret: "test-secret" });
+  await app.register(
+    async (api) => {
+      api.addHook("onRequest", requireApiAuthentication);
+      await registerAuthRoutes(api, { repository });
+      await registerUserRoutes(api, { repository });
+    },
+    { prefix: "/api/v1" },
+  );
+  const headers: Partial<
+    Record<(typeof roles)[number], { authorization: string }>
+  > = {};
+  try {
+    for (const role of roles) {
+      const login = await app.inject({
+        method: "POST",
+        url: "/api/v1/auth/login",
+        payload: { email: `${role.toLowerCase()}@example.com`, password },
+      });
+      assert.equal(login.statusCode, 200, login.body);
+      const session = login.json();
+      assert.equal(session.user.role, role);
+      headers[role] = { authorization: `Bearer ${session.accessToken}` };
+    }
+    for (const [role, id, payload, status] of [
+      ["EMPLOYEE", 2, { role: "ADMIN" }, 403],
+      ["ADMIN", 2, { role: "PLATFORM_ADMIN" }, 403],
+      ["PLATFORM_ADMIN", 2, { role: "PLATFORM_ADMIN" }, 400],
+      ["PLATFORM_ADMIN", 3, { active: false }, 403],
+      ["ADMIN", 3, { password: "Different@123" }, 403],
+      ["PLATFORM_ADMIN", 1, { name: "Suporte" }, 200],
+      ["PLATFORM_ADMIN", 2, { email: "support@example.com" }, 200],
+      ["PLATFORM_ADMIN", 2, { password: "Different@123" }, 200],
+      ["PLATFORM_ADMIN", 2, { role: "ADMIN" }, 200],
+      ["PLATFORM_ADMIN", 2, { name: "Nome atualizado" }, 200],
+      ["PLATFORM_ADMIN", 2, { active: false }, 200],
+      ["PLATFORM_ADMIN", 2, { active: true }, 200],
+    ] as const) {
+      const result = await app.inject({
+        method: "PATCH",
+        url: `/api/v1/users/${id}`,
+        headers: headers[role],
+        payload,
+      });
+      assert.equal(result.statusCode, status, result.body);
+    }
+    const registration = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/register",
+      headers: headers.PLATFORM_ADMIN,
+      payload: { name: "Nova conta", email: "new@example.com", password },
+    });
+    assert.equal(registration.statusCode, 201);
+    const spoofedProfile = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/auth/me",
+      headers: headers.ADMIN,
+      payload: { name: "Nova conta", role: "PLATFORM_ADMIN" },
+    });
+    assert.equal(spoofedProfile.statusCode, 400);
+    const disabled = await app.inject({
+      method: "DELETE",
+      url: "/api/v1/users/2",
+      headers: headers.PLATFORM_ADMIN,
+    });
+    assert.equal(disabled.statusCode, 204);
+    assert.equal(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/api/v1/auth/logout",
+          headers: headers.EMPLOYEE,
+        })
+      ).statusCode,
+      401,
+    );
   } finally {
     await app.close();
   }

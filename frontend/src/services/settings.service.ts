@@ -14,7 +14,9 @@ export type RestaurantSettings = PublicRestaurantSettings & {
 export const fetchSettings = () => apiRequest<RestaurantSettings>("/settings");
 export const fetchPublicSettings = () =>
   apiRequest<PublicRestaurantSettings>("/settings/public");
-export const saveSettings = (data: Omit<RestaurantSettings, "bannerImageUrl">) =>
+export const saveSettings = (
+  data: Omit<RestaurantSettings, "bannerImageUrl"> & { removeBanner?: true },
+) =>
   apiRequest<RestaurantSettings>("/settings", {
     method: "PUT",
     body: JSON.stringify(data),
@@ -25,3 +27,8 @@ export const uploadRestaurantBanner = (file: File) => {
   body.append("image", file);
   return apiRequest<RestaurantSettings>("/settings/banner", { method: "POST", body });
 };
+
+export const fetchOperationalSettings = () =>
+  apiRequest<Pick<RestaurantSettings, "dayCutoffHour"> & { serviceFeeRate?: number }>(
+    "/settings/operation",
+  );

@@ -1,4 +1,4 @@
-/** Ponto único de importação dos componentes MesaFlow. */
+/** Ponto único de importação dos componentes iServi. */
 export * from "./ui/buttons";
 export * from "./ui/inputs";
 export * from "./ui/forms";

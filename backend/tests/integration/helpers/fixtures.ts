@@ -1,7 +1,8 @@
+import type { UserRole } from "../../../src/modules/users/entity/user.entity.js";
 import { randomInt, randomUUID } from "node:crypto";
 import { db } from "./database.js";
 
-export function createUser(role: "ADMIN" | "EMPLOYEE" = "ADMIN") {
+export function createUser(role: UserRole = "ADMIN") {
   return db.user.create({
     data: {
       name: "Integration Test User",

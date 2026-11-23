@@ -82,7 +82,9 @@ export default function Orders({
     catalog,
   } = state;
 
-  const isAdmin = getSession()?.user.role === "ADMIN";
+  const role = getSession()?.user.role;
+  const isAdmin = role === "ADMIN";
+  const supportOnly = role === "PLATFORM_ADMIN";
   // Confirmação de "Excluir pedido" / "Reabrir conta" do pedido aberto no painel.
   const [confirm, setConfirm] = useState<{
     kind: "delete" | "reopen";
@@ -249,13 +251,13 @@ export default function Orders({
                   <option value="oldest">Mais antigos</option>
                 </select>
               </label>
-              <Button
+              {!supportOnly && <Button
                 className="order-create-button"
                 onClick={() => setIsCreatingOrder(true)}
               >
                 <Plus aria-hidden="true" />
                 Novo pedido
-              </Button>
+              </Button>}
             </div>
           </div>
 
@@ -331,9 +333,9 @@ export default function Orders({
                           .map((item) => `${item.quantity}x ${item.name}`)
                           .join(" • ")}
                       </p>
-                      <strong className="order-card-total">
+                      {!supportOnly && <strong className="order-card-total">
                         {formatCurrency(getOrderTotal(order))}
-                      </strong>
+                      </strong>}
                     </article>
                   );
                 })}
@@ -344,10 +346,10 @@ export default function Orders({
                     {orders.length === 0 ? (
                       <>
                         <h3>{emptyPeriodMessages[period]}</h3>
-                        <Button onClick={() => setIsCreatingOrder(true)}>
+                        {!supportOnly && <Button onClick={() => setIsCreatingOrder(true)}>
                           <Plus aria-hidden="true" />
                           Lançar primeiro pedido
-                        </Button>
+                        </Button>}
                       </>
                     ) : (
                       <>
@@ -392,7 +394,7 @@ export default function Orders({
                       <ClipboardList aria-hidden="true" />
                       Resumo
                     </button>
-                    <button
+                    {!supportOnly && <button
                       type="button"
                       disabled={selectedOrder.status === "closed"}
                       title={
@@ -404,7 +406,7 @@ export default function Orders({
                     >
                       <Pencil aria-hidden="true" />
                       Editar pedido
-                    </button>
+                    </button>}
                     <button
                       type="button"
                       disabled={printingOrderId === selectedOrder.id}
@@ -442,9 +444,7 @@ export default function Orders({
                                   <small>{item.observation}</small>
                                 )}
                           </div>
-                          <b>
-                            {formatCurrency(item.quantity * item.unitPrice)}
-                          </b>
+                          {!supportOnly && <b>{formatCurrency(item.quantity * item.unitPrice)}</b>}
                         </div>
                       ))}
                     </div>
@@ -454,14 +454,14 @@ export default function Orders({
                         {selectedOrder.observation}
                       </p>
                     )}
-                    <div className="order-details-total">
+                    {!supportOnly && <div className="order-details-total">
                       <span>Total</span>
                       <strong>
                         {formatCurrency(getOrderTotal(selectedOrder))}
                       </strong>
-                    </div>
+                    </div>}
 
-                    {selectedOrder.status === "closed" &&
+                    {!supportOnly && selectedOrder.status === "closed" &&
                       selectedOrder.payment && (
                         <section className="closed-payment-summary">
                           <div className="closed-payment-heading">
@@ -515,7 +515,7 @@ export default function Orders({
 
                     <div className="order-details-actions">
                       {/* Conta paga: só o ADMIN reabre (estorna os pagamentos). */}
-                      {selectedOrder.status !== "closed" && (
+                      {!supportOnly && selectedOrder.status !== "closed" && (
                         <Button
                           onClick={() => setPaymentOrderId(selectedOrder.id)}
                         >
@@ -623,7 +623,7 @@ export default function Orders({
         </div>
       </main>
 
-      {paymentOrder && (
+      {!supportOnly && paymentOrder && (
         <PaymentModal
           key={paymentOrder.id}
           orderId={paymentOrder.id}
@@ -644,7 +644,7 @@ export default function Orders({
         />
       )}
 
-      {editingOrder && (
+      {!supportOnly && editingOrder && (
         <OrderEditPanel
           key={editingOrder.id}
           orderId={editingOrder.id}
@@ -663,7 +663,7 @@ export default function Orders({
         />
       )}
 
-      {isCreatingOrder && (
+      {!supportOnly && isCreatingOrder && (
         <OrderEditPanel
           mode="create"
           tableId={state.newOrderTableId ?? ""}

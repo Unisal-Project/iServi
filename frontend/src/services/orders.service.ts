@@ -37,6 +37,7 @@ export type CreateQrOrderInput = {
 };
 
 export type CreateQrOrderResponse = {
+  paymentSession: string;
   attendanceId: string;
   order: OrderResponse & {
     customerName: string | null;
@@ -98,8 +99,8 @@ export type AdminOrderResponse = {
       | "CLOSED"
       | "CANCELLED";
     closedAt: string | null;
-    serviceFee: string | null;
-    payments: Array<{
+    serviceFee?: string | null;
+    payments?: Array<{
       method: PaymentMethodCode | null;
       amount: string;
       receivedAmount: string | null;
@@ -112,7 +113,7 @@ export type AdminOrderResponse = {
     productId: string;
     productName: string;
     quantity: number;
-    unitPrice: string;
+    unitPrice?: string;
     notes: string | null;
   }>;
 };

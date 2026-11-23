@@ -27,11 +27,10 @@ lerna-debug.log*
 # ─────────────────────────────────────────
 .env
 .env.*
-!.env.example
-!.env.test
-!.env.staging.example
+!/.env.example
 production.env
 *.local
+.cloudflared/
 
 # ─────────────────────────────────────────
 #  Vite / bundler cache

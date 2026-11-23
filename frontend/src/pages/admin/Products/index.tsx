@@ -1,3 +1,4 @@
+import { canManageRestaurant } from "@/routers/admin-access";
 import { useEffect, useState } from "react";
 import { PromotionsContent } from "../Promotions";
 import { usePromotions, type ItemKey } from "../Promotions/hooks/usePromotions";
@@ -35,7 +36,7 @@ export default function Products({
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [menuAccessOpen, setMenuAccessOpen] = useState(false);
-  const isAdmin = getSession()?.user.role === "ADMIN";
+  const isAdmin = canManageRestaurant(getSession()?.user.role);
   const promotionState = usePromotions(() => Promise.all([productState.reload(), categoryState.reload()]));
   const { contentRef, transitionContent } =
     useContentTransition(".products-list");

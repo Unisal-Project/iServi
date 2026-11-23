@@ -14,6 +14,7 @@ import {
   type AdminOrderSummaryRecord,
 } from "./repositories/prisma-admin-order.repository.js";
 
+import { canAccessOrderAmounts } from "../../shared/api-access.js";
 import { formatBusinessDate } from "./daily-number.js";
 
 const money = (value: { toString(): string } | null | undefined) =>
@@ -79,6 +80,28 @@ export function presentOrderSummary(order: AdminOrderSummaryRecord) {
   };
 }
 
+function presentSupportOrder(order: AdminOrderRecord) {
+  return {
+    ...presentOrderSummary(order),
+    notes: order.notes,
+    customerName: order.customerName,
+    cancelledAt: order.cancelledAt?.toISOString() ?? null,
+    cancellationReason: order.cancellationReason,
+    attendance: {
+      id: order.attendance.id.toString(),
+      status: order.attendance.status,
+      closedAt: order.attendance.closedAt?.toISOString() ?? null,
+    },
+    items: order.items.map((item) => ({
+      id: item.id.toString(),
+      productId: item.productId.toString(),
+      productName: item.product.name,
+      quantity: item.quantity,
+      notes: item.notes,
+    })),
+  };
+}
+
 export function actorFrom(request: FastifyRequest): Actor {
   const { id, role } = request.user;
   return {
@@ -104,11 +127,14 @@ export async function adminOrderRoutes(
           : { createdAt: { gte: new Date(now.getTime() - days * 86_400_000) } };
       return (await repository.findSummary(where)).map(presentOrderSummary);
     }
+    const present = canAccessOrderAmounts(request.user?.role)
+      ? presentAdminOrder
+      : presentSupportOrder;
     if (scope === "operational") {
-      return (await repository.findOperational(now)).map(presentAdminOrder);
+      return (await repository.findOperational(now)).map(present);
     }
     const since = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-    return (await repository.findSince(since)).map(presentAdminOrder);
+    return (await repository.findSince(since)).map(present);
   });
 
   app.post("/tables/:id/orders", async (request, reply) => {

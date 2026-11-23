@@ -13,12 +13,14 @@ import { uploadsRootDirectory } from "./shared/storage/storage.config.js";
 import { mkdir } from "node:fs/promises";
 import { attendanceRoutes } from "./modules/attendance/attendance.routes.js";
 import { tableRoutes } from "./modules/tables/table.routers.js";
+import { paymentConfirmationRoutes } from "./modules/payments/payment-confirmation.routes.js";
 import { paymentRoutes } from "./modules/payments/payment.routes.js";
 import { reportRoutes } from "./modules/reports/report.routes.js";
 import { registerAuthRoutes } from "./modules/auth/auth.router.js";
 import { registerUserRoutes } from "./modules/users/user.router.js";
 import { registerSettingsRoutes } from "./modules/settings/settings.routes.js";
 import { requireApiAuthentication } from "./shared/api-access.js";
+import { notificationsRoutes } from "./modules/notifications/notifications.routes.js";
 
 export async function buildApp(logger = true) {
   const app = fastify({ logger, trustProxy: true });
@@ -71,6 +73,8 @@ export async function buildApp(logger = true) {
       await instance.register(attendanceRoutes);
       await instance.register(tableRoutes);
       await instance.register(paymentRoutes);
+      await instance.register(paymentConfirmationRoutes);
+      await instance.register(notificationsRoutes);
       await instance.register(reportRoutes);
       await instance.register(registerSettingsRoutes);
     },

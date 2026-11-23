@@ -1,0 +1,161 @@
+@use "../../../../styles/abstracts/variables";
+@use "../../../../styles/abstracts/mixins";
+
+.push-notification-prompt {
+  position: fixed;
+  z-index: 100;
+  right: var(--spacing-4);
+  bottom: calc(var(--spacing-4) + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-3);
+
+  width: min(400px, calc(100% - var(--spacing-8)));
+  padding: var(--spacing-6);
+
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 8px 32px rgb(0 0 0 / 15%);
+
+  font-family: var(--font-body);
+  text-align: center;
+
+  animation: push-prompt-appear 300ms ease-out both;
+
+  &__close {
+    position: absolute;
+    top: var(--spacing-3);
+    right: var(--spacing-3);
+    display: grid;
+    place-items: center;
+
+    width: 44px;
+    height: 44px;
+
+    border: 0;
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+
+    transition: background variables.$transition-standard;
+
+    &:hover {
+      background: var(--background);
+    }
+
+    &:focus-visible {
+      @include mixins.focus-visible;
+    }
+  }
+
+  &__icon {
+    display: grid;
+    place-items: center;
+
+    width: 64px;
+    height: 64px;
+
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+    color: var(--primary);
+  }
+
+  h3 {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-extrabold);
+    line-height: var(--line-height-heading);
+  }
+
+  p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-body);
+    opacity: 0.8;
+  }
+
+  &__action,
+  &__dismiss {
+    width: 100%;
+    min-height: 44px;
+    padding: var(--spacing-3) var(--spacing-4);
+
+    border: 0;
+    border-radius: var(--radius-control);
+
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-bold);
+
+    cursor: pointer;
+    transition: opacity variables.$transition-standard;
+
+    &:hover {
+      opacity: 0.85;
+    }
+
+    &:focus-visible {
+      @include mixins.focus-visible;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  &__action {
+    margin-top: var(--spacing-2);
+    background: var(--primary);
+    color: var(--surface);
+  }
+
+  &__dismiss {
+    background: transparent;
+    color: var(--text);
+  }
+
+  &__error {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    color: var(--text);
+  }
+
+  @include mixins.down(phone) {
+    right: 0;
+    bottom: 0;
+
+    width: 100%;
+    padding-bottom: calc(var(--spacing-6) + env(safe-area-inset-bottom, 0px));
+
+    border-bottom: 0;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+
+    &__action,
+    &__dismiss,
+    &__close {
+      transition: none;
+    }
+  }
+}
+
+@keyframes push-prompt-appear {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -7,7 +7,7 @@ let server, notifications, toast, runtime, createHookRunner;
 const saved = { window: globalThis.window, localStorage: globalThis.localStorage, sessionStorage: globalThis.sessionStorage, fetch: globalThis.fetch };
 const local = new Map(), session = new Map();
 const storage = (map) => ({ getItem: (key) => map.get(key) ?? null, setItem: (key, value) => map.set(key, value) });
-const signIn = (id) => local.set("mesaflow.session", JSON.stringify({ accessToken: `h.${btoa("{}")}.s`, user: { id, role: "ADMIN" } }));
+const signIn = (id) => local.set("iservi.session", JSON.stringify({ accessToken: `h.${btoa("{}")}.s`, user: { id, role: "ADMIN" } }));
 
 before(async () => {
   globalThis.window = { location: { protocol: "http:", hostname: "localhost" } };

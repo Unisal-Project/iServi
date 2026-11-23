@@ -66,7 +66,7 @@ test("login envia credenciais e salva a sessão", async () => {
 test("login com senha errada propaga a mensagem e não redireciona", async () => {
   auth.logout();
   store.set(
-    "mesaflow.session",
+    "iservi.session",
     JSON.stringify({ user, accessToken: jwt(nowSec() + 3600) }),
   );
   globalThis.fetch = async () =>
@@ -75,7 +75,8 @@ test("login com senha errada propaga a mensagem e não redireciona", async () =>
   assert.deepEqual(redirects, []);
 });
 
-test("cadastro envia apenas name, email e password", async () => {
+test("cadastro de funcionário preserva a sessão do operador", async () => {
+  const before = auth.getSession();
   globalThis.fetch = async (url, options) => {
     assert.match(url, /\/auth\/register$/);
     assert.deepEqual(Object.keys(JSON.parse(options.body)).sort(), [
@@ -85,27 +86,27 @@ test("cadastro envia apenas name, email e password", async () => {
     ]);
     return Response.json({ user, accessToken: jwt(nowSec() + 3600) }, { status: 201 });
   };
-  await auth.register("Ana", "ana@x.com", "segredo123");
-  assert.ok(auth.getSession());
+  await auth.createEmployee("Ana", "ana@x.com", "segredo123");
+  assert.deepEqual(auth.getSession(), before);
 });
 
 test("token expirado invalida a sessão", () => {
   store.set(
-    "mesaflow.session",
+    "iservi.session",
     JSON.stringify({ user, accessToken: jwt(nowSec() - 10) }),
   );
   assert.equal(auth.getSession(), null);
-  assert.equal(store.has("mesaflow.session"), false);
+  assert.equal(store.has("iservi.session"), false);
 });
 
 test("sessão corrompida é tratada como deslogado", () => {
-  store.set("mesaflow.session", "{nao-e-json");
+  store.set("iservi.session", "{nao-e-json");
   assert.equal(auth.getSession(), null);
 });
 
 test("requisições autenticadas levam o Bearer token", async () => {
   const token = jwt(nowSec() + 3600);
-  store.set("mesaflow.session", JSON.stringify({ user, accessToken: token }));
+  store.set("iservi.session", JSON.stringify({ user, accessToken: token }));
   globalThis.fetch = async (_url, options) => {
     assert.equal(options.headers.get("Authorization"), `Bearer ${token}`);
     return Response.json([]);
@@ -115,7 +116,7 @@ test("requisições autenticadas levam o Bearer token", async () => {
 
 test("401 fora de /auth encerra a sessão e volta ao login", async () => {
   store.set(
-    "mesaflow.session",
+    "iservi.session",
     JSON.stringify({ user, accessToken: jwt(nowSec() + 3600) }),
   );
   globalThis.fetch = async () => Response.json({}, { status: 401 });
@@ -126,7 +127,7 @@ test("401 fora de /auth encerra a sessão e volta ao login", async () => {
 
 test("trocar senha faz PATCH autenticado e salva o token novo; erro chega ao formulário", async () => {
   const session = JSON.stringify({ user, accessToken: jwt(nowSec() + 3600) });
-  store.set("mesaflow.session", session);
+  store.set("iservi.session", session);
   globalThis.fetch = async (url, options) => {
     assert.match(url, /\/api\/v1\/auth\/password$/);
     assert.equal(options.method, "PATCH");
@@ -139,8 +140,8 @@ test("trocar senha faz PATCH autenticado e salva o token novo; erro chega ao for
   };
   await auth.changePassword("antiga123", "novaSenha1");
   // O backend revogou o token antigo: a sessão passa a usar o novo.
-  assert.equal(JSON.parse(store.get("mesaflow.session")).accessToken, "novo-token");
-  store.set("mesaflow.session", session);
+  assert.equal(JSON.parse(store.get("iservi.session")).accessToken, "novo-token");
+  store.set("iservi.session", session);
 
   globalThis.fetch = async () =>
     Response.json({ message: "Senha atual incorreta" }, { status: 400 });
@@ -148,7 +149,7 @@ test("trocar senha faz PATCH autenticado e salva o token novo; erro chega ao for
     auth.changePassword("errada", "novaSenha1"),
     /Senha atual incorreta/,
   );
-  assert.equal(store.get("mesaflow.session"), session);
+  assert.equal(store.get("iservi.session"), session);
   assert.deepEqual(redirects, []);
 });
 
@@ -157,9 +158,9 @@ test("401 só é 'credencial errada' em login/cadastro; em /auth/password encerr
   globalThis.fetch = async () =>
     Response.json({ message: "Token inválido ou não informado" }, { status: 401 });
 
-  store.set("mesaflow.session", session);
+  store.set("iservi.session", session);
   await assert.rejects(apiRequest("/auth/login", { method: "POST" }));
-  assert.equal(store.get("mesaflow.session"), session);
+  assert.equal(store.get("iservi.session"), session);
   assert.deepEqual(redirects, []);
 
   await assert.rejects(auth.changePassword("antiga123", "novaSenha1"));
@@ -169,7 +170,7 @@ test("401 só é 'credencial errada' em login/cadastro; em /auth/password encerr
 
 test("Sair avisa o servidor (keepalive) e sai mesmo se a chamada falhar", async () => {
   const token = jwt(nowSec() + 3600);
-  store.set("mesaflow.session", JSON.stringify({ user, accessToken: token }));
+  store.set("iservi.session", JSON.stringify({ user, accessToken: token }));
   const calls = [];
   globalThis.fetch = async (url, options) => {
     calls.push([url, options.method, options.keepalive, options.headers.get("Authorization")]);
@@ -179,7 +180,7 @@ test("Sair avisa o servidor (keepalive) e sai mesmo se a chamada falhar", async 
   window.location.replace = (url) => replaced.push(url);
   try {
     auth.signOut();
-    assert.equal(store.has("mesaflow.session"), false);
+    assert.equal(store.has("iservi.session"), false);
     assert.deepEqual(replaced, ["/login"]);
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(calls.length, 1);

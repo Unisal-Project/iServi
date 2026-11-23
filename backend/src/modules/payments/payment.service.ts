@@ -2,9 +2,12 @@ import { PrismaPaymentRepository } from "./repositories/prisma-payment.repositor
 import type { CloseAttendanceDTO } from "./dto/close-attendance.dto.js";
 import type { PaymentRepository } from "./repositories/payment.repository.js";
 
+type PaymentConfirmedHandler = (attendanceId: bigint) => Promise<void>;
+
 export class PaymentService {
   constructor(
     private readonly paymentRepository: PaymentRepository = new PrismaPaymentRepository(),
+    private readonly onPaymentConfirmed?: PaymentConfirmedHandler,
   ) {}
 
   async closeAttendance(
@@ -17,6 +20,8 @@ export class PaymentService {
       data,
       closedById,
     );
+
+    await this.notifyPaymentConfirmed(result.attendanceId);
 
     return {
       ...result,
@@ -39,11 +44,23 @@ export class PaymentService {
       userId,
     );
 
+    await this.notifyPaymentConfirmed(payment.attendanceId);
+
     return {
       attendanceId: payment.attendanceId.toString(),
       amount: payment.amount,
       status: "PAID" as const,
       paidAt: payment.paidAt,
     };
+  }
+
+  private async notifyPaymentConfirmed(attendanceId: bigint): Promise<void> {
+    try {
+      await this.onPaymentConfirmed?.(attendanceId);
+    } catch {
+      console.warn(
+        `Falha ao notificar pagamento do atendimento ${attendanceId}.`,
+      );
+    }
   }
 }

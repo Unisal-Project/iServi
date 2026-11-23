@@ -10,7 +10,7 @@ export async function connectDatabase() {
     database.protocol !== "mysql:" ||
     database.hostname !== "127.0.0.1" ||
     database.port !== "3308" ||
-    database.pathname !== "/mesaflow_test"
+    database.pathname !== "/iservi_test"
   ) {
     throw new Error("Invalid integration test environment.");
   }

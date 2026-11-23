@@ -1,3 +1,4 @@
+import { roleLabels, type UserRole } from "@/routers/admin-access";
 import { apiRequest } from "@/api/client";
 
 export type AuthUser = {
@@ -5,18 +6,19 @@ export type AuthUser = {
   name: string;
   avatarUrl?: string | null;
   email: string;
-  role: "ADMIN" | string;
+  role: UserRole;
 };
 
 type AuthResult = { user: AuthUser; accessToken: string };
 
-const SESSION_KEY = "mesaflow.session";
+const SESSION_KEY = "iservi.session";
 
 export function getSession(): AuthResult | null {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
     const session = JSON.parse(raw) as AuthResult;
+    if (!Object.hasOwn(roleLabels, session.user.role)) return null;
     // Só a expiração é lida; quem valida a assinatura é o backend.
     const payload = session.accessToken.split(".")[1];
     const { exp } = JSON.parse(
@@ -64,11 +66,11 @@ export const login = (email: string, password: string) =>
     body: JSON.stringify({ email, password }),
   }).then(saveSession);
 
-export const register = (name: string, email: string, password: string) =>
+export const createEmployee = (name: string, email: string, password: string) =>
   apiRequest<AuthResult>("/auth/register", {
     method: "POST",
     body: JSON.stringify({ name, email, password }),
-  }).then(saveSession);
+  });
 
 /**
  * Troca a senha do usuário logado. O backend invalida os tokens antigos e

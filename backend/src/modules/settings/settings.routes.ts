@@ -1,3 +1,4 @@
+import { canManageRestaurant } from "../../shared/api-access.js";
 import type { UserRepository } from "../users/repository/user.repository.js";
 import { PrismaUserRepository } from "../users/repository/prisma-user.repository.js";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
@@ -24,23 +25,36 @@ export async function registerSettingsRoutes(
     controller.getPublic(request, reply),
   );
   app.get("/settings", (request, reply) => controller.get(request, reply));
+  app.get("/settings/operation", (request, reply) =>
+    controller.getOperation(request, reply),
+  );
   const users = options.userRepository ?? new PrismaUserRepository();
-  const requireAdmin = async (request: FastifyRequest, reply: FastifyReply) => {
+  const requireManager = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ) => {
     const user = /^\d+$/.test(request.user.id)
       ? await users.findById(BigInt(request.user.id))
       : null;
     if (
-      request.user.role !== "ADMIN" ||
+      !canManageRestaurant(request.user.role) ||
       !user?.active ||
-      user.role !== "ADMIN"
+      !canManageRestaurant(user.role)
     ) {
       return reply.status(403).send({ message: "Acesso negado" });
     }
   };
-  app.put("/settings", { preHandler: requireAdmin }, (request, reply) =>
+  app.put("/settings", { preHandler: requireManager }, (request, reply) =>
     controller.save(request, reply),
   );
-  app.post("/settings/banner", { preHandler: requireAdmin }, (request, reply) =>
-    controller.uploadBanner(request, reply),
+  app.post(
+    "/settings/banner",
+    { preHandler: requireManager },
+    (request, reply) => controller.uploadBanner(request, reply),
+  );
+  app.delete(
+    "/settings/banner",
+    { preHandler: requireManager },
+    (request, reply) => controller.removeBanner(request, reply),
   );
 }

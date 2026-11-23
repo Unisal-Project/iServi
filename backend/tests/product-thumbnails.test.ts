@@ -16,7 +16,7 @@ const { default: ProductService } =
 import type ProductsRepository from "../src/modules/products/repositories/products.repository.js";
 
 test("AVIF aceito gera original WebP 1200 e miniatura 400; excluir remove ambas com basename", async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), "mesaflow-avif-"));
+  const directory = await mkdtemp(path.join(tmpdir(), "iservi-avif-"));
   try {
     const buffer = await sharp({
       create: { width: 1600, height: 800, channels: 3, background: "red" },
@@ -56,7 +56,7 @@ test("AVIF aceito gera original WebP 1200 e miniatura 400; excluir remove ambas 
 });
 
 test("HEIC/HEVC e outros MIME não são aceitos e explicam formatos disponíveis", async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), "mesaflow-reject-"));
+  const directory = await mkdtemp(path.join(tmpdir(), "iservi-reject-"));
   try {
     const storage = new LocalStorageService(directory);
     for (const mimeType of ["image/heic", "image/heif", "image/gif"]) {
@@ -76,7 +76,7 @@ test("HEIC/HEVC e outros MIME não são aceitos e explicam formatos disponíveis
 });
 
 test("substituir/remover foto pelo serviço apaga as duas variantes reais", async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), "mesaflow-replace-"));
+  const directory = await mkdtemp(path.join(tmpdir(), "iservi-replace-"));
   try {
     const storage = new LocalStorageService(directory);
     const file = {
@@ -156,7 +156,7 @@ test("toProduct deriva thumbUrls na ordem de imageUrls, inclusive quando há slo
 
 test("script gera somente miniaturas ausentes e é idempotente", async () => {
   const { generateThumbs } = await import("../scripts/generate-thumbs.js");
-  const directory = await mkdtemp(path.join(tmpdir(), "mesaflow-backfill-"));
+  const directory = await mkdtemp(path.join(tmpdir(), "iservi-backfill-"));
   try {
     await sharp({
       create: { width: 1200, height: 600, channels: 3, background: "green" },
@@ -179,9 +179,7 @@ test("script gera somente miniaturas ausentes e é idempotente", async () => {
 
 test("script sem uploads ainda informa zero miniaturas", async () => {
   const { generateThumbs } = await import("../scripts/generate-thumbs.js");
-  const directory = await mkdtemp(
-    path.join(tmpdir(), "mesaflow-empty-thumbs-"),
-  );
+  const directory = await mkdtemp(path.join(tmpdir(), "iservi-empty-thumbs-"));
   try {
     assert.equal(await generateThumbs(path.join(directory, "missing")), 0);
   } finally {

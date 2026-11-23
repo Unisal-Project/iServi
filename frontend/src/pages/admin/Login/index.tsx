@@ -10,9 +10,8 @@ import {
 } from "lucide-react";
 import { Button, TextField } from "@/components";
 import logoTipo from "@/assets/logotipo/logo_principal.png";
-import { login, register } from "@/services/auth.service";
+import { login } from "@/services/auth.service";
 import { PasswordStrength } from "@/components/ui/inputs/PasswordStrength";
-import { passwordStrength } from "@/utils/password-strength";
 import "./styles.scss";
 
 type LoginProps = {
@@ -28,43 +27,26 @@ export default function Login({
 }: LoginProps) {
   useDocumentClass("login-active");
 
-  const [mode, setMode] = useState<"login" | "register" | "recovery" | "reset">(
+  const [mode, setMode] = useState<"login" | "recovery" | "reset">(
     initialMode,
   );
-  const isRegistering = mode === "register";
   const isRecovering = mode === "recovery";
   const isResetting = mode === "reset";
-  const isCreatingPassword = isRegistering || isResetting;
+  const isCreatingPassword = isResetting;
   const [confirmPassword, setConfirmPassword] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isRecovering || isResetting || loading) return;
-    if (isRegistering && !passwordStrength(password).valid) {
-      setError(
-        "Sua senha precisa atender a todos os requisitos abaixo e ter no máximo 128 caracteres.",
-      );
-      return;
-    }
-    if (isRegistering && password !== confirmPassword) {
-      const confirmation = event.currentTarget.elements.namedItem(
-        "confirmPassword",
-      ) as HTMLInputElement;
-      confirmation.setCustomValidity("As senhas precisam ser iguais.");
-      confirmation.reportValidity();
-      return;
-    }
     setError("");
     setLoading(true);
     try {
-      if (isRegistering) await register(name, email, password);
-      else await login(email, password);
+      await login(email, password);
       onEnter();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível entrar");
@@ -103,7 +85,7 @@ export default function Login({
         <div className="login-brand">
           <img src={logoTipo} alt="" />
           <div>
-            <strong>MesaFlow</strong>
+            <strong>iServi</strong>
             <span>GESTÃO DO RESTAURANTE</span>
           </div>
         </div>
@@ -143,33 +125,16 @@ export default function Login({
               ? "Crie sua nova senha"
               : isRecovering
                 ? "Recuperar senha"
-                : isRegistering
-                  ? "Comece com o MesaFlow"
-                  : "Bem-vindo de volta!"}
+                : "Bem-vindo de volta!"}
           </h2>
           <p className="login-description">
             {isResetting
               ? "Escolha uma senha forte para proteger sua conta."
               : isRecovering
-                ? "Informe o e-mail da sua conta para recuperar o acesso ao MesaFlow."
-                : isRegistering
-                  ? "Cadastre seu estabelecimento e conheça uma gestão mais simples."
-                  : "Acesse o MesaFlow e acompanhe seu estabelecimento."}
+                ? "Informe o e-mail da sua conta para recuperar o acesso ao iServi."
+                : "Acesse o iServi e acompanhe seu estabelecimento."}
           </p>
           <form key={mode} className="login-form" onSubmit={handleSubmit}>
-            {isRegistering && (
-              <TextField
-                id="register-name"
-                name="name"
-                label="Seu nome"
-                autoComplete="name"
-                placeholder="Como podemos chamar você?"
-                maxLength={120}
-                required
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-              />
-            )}
             {!isResetting && (
               <TextField
                 id="login-email"
@@ -228,7 +193,7 @@ export default function Login({
             )}
             {isCreatingPassword && (
               <TextField
-                id="register-confirm-password"
+                id="reset-confirm-password"
                 name="confirmPassword"
                 label="Confirmar senha"
                 type={showPassword ? "text" : "password"}
@@ -269,8 +234,7 @@ export default function Login({
               loading={loading}
               disabled={
                 isRecovering ||
-                isResetting ||
-                (isRegistering && !passwordStrength(password).valid)
+                isResetting
               }
               aria-describedby={
                 isRecovering
@@ -284,40 +248,20 @@ export default function Login({
                 ? "Salvar nova senha"
                 : isRecovering
                   ? "Enviar link de recuperação"
-                  : isRegistering
-                    ? "Experimentar o MesaFlow"
-                    : "Entrar no painel"}
+                  : "Entrar no painel"}
               <ArrowRight aria-hidden="true" />
             </Button>
           </form>
-          <p className="login-switch">
-            {isResetting
-              ? "Já pode acessar sua conta?"
-              : isRecovering
-                ? "Lembrou sua senha?"
-                : isRegistering
-                  ? "Já tem uma conta?"
-                  : "Ainda não tem uma conta?"}{" "}
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => {
+          {(isRecovering || isResetting) && (
+            <p className="login-switch">
+              <button type="button" disabled={loading} onClick={() => {
                 if (isResetting && onReturnToLogin) onReturnToLogin();
-                else
-                  switchMode(
-                    isRegistering || isRecovering || isResetting
-                      ? "login"
-                      : "register",
-                  );
-              }}
-            >
-              {isRecovering || isResetting
-                ? "Voltar para entrar"
-                : isRegistering
-                  ? "Entrar"
-                  : "Criar conta"}
-            </button>
-          </p>
+                else switchMode("login");
+              }}>
+                Voltar para entrar
+              </button>
+            </p>
+          )}
           {mode === "login" && (
             <p className="login-switch login-recovery-switch">
               <button
@@ -331,7 +275,7 @@ export default function Login({
           )}
         </div>
         <footer className="login-footer">
-          MesaFlow · Gestão que acompanha o seu ritmo.
+          iServi · Gestão que acompanha o seu ritmo.
         </footer>
       </section>
     </main>

@@ -151,7 +151,7 @@ export function useReports() {
       percentChange(periodTicket, previous?.orders ? previous.revenue / previous.orders : 0),
     ];
     const rows: (string | number)[][] = [
-      ["Relatório MesaFlow"],
+      ["Relatório iServi"],
       ["Período", start, end],
       ["Data", "Faturamento (R$)", "Pedidos concluídos", "Ticket médio (R$)", "Mesas atendidas", "Taxa de serviço (R$)", "Cancelamentos"],
       ...days.map((day) => [day.date, decimal(day.revenue), day.orders, decimal(day.orders ? day.revenue / day.orders : 0), day.tables, decimal(day.serviceFee), day.cancellations]),
@@ -165,7 +165,7 @@ export function useReports() {
     const url = URL.createObjectURL(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8;" }));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `mesaflow-relatorios-${start}-${end}.csv`;
+    anchor.download = `iservi-relatorios-${start}-${end}.csv`;
     anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };

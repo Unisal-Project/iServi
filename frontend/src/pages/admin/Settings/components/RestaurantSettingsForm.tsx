@@ -1,5 +1,5 @@
 import { Button, SkeletonCard, SystemMessage, TextField } from "@/components";
-import { ImagePlus, Store, Save } from "lucide-react";
+import { ImagePlus, Store, Save, Trash2 } from "lucide-react";
 import { assetUrl } from "@/api/client";
 import type { useRestaurantSettings } from "../hooks/useRestaurantSettings";
 import { OpeningHoursFields } from "./OpeningHoursFields";
@@ -61,7 +61,7 @@ export function RestaurantSettingsForm({
                 />
               )}
               <span className="settings-banner-name">
-                {state.form.name.trim() || "MesaFlow"}
+                {state.form.name.trim() || "iServi"}
               </span>
             </div>
             <div className="settings-banner-upload">
@@ -87,6 +87,17 @@ export function RestaurantSettingsForm({
                     }}
                   />
                 </label>
+              )}
+              {editable && (state.bannerPreview || state.form.bannerImageUrl) && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={state.busy}
+                  onClick={state.removeBanner}
+                >
+                  <Trash2 aria-hidden="true" />
+                  Remover imagem
+                </Button>
               )}
               <p id="settings-banner-hint">JPG, PNG, WebP ou AVIF · Até 5 MB</p>
             </div>

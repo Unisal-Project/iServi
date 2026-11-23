@@ -8,7 +8,7 @@ const saved = { window: globalThis.window, localStorage: globalThis.localStorage
 const storage = new Map();
 const login = (id) => {
   const token = "h." + btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })) + ".s";
-  storage.set("mesaflow.session", JSON.stringify({ accessToken: token, user: { id, role: "ADMIN" } }));
+  storage.set("iservi.session", JSON.stringify({ accessToken: token, user: { id, role: "ADMIN" } }));
 };
 
 before(async () => {
@@ -39,7 +39,7 @@ test("abrir o sino marca tudo como lido: badge zera e os itens continuam", () =>
   assert.equal(n.visibleNotifications(list).length, 2);
   // Notificação nova depois de abrir volta a contar.
   assert.deepEqual(n.unreadNotifications([...list, order]), [order]);
-  assert.equal(storage.get("mesaflow.readNotifications.u-read"), JSON.stringify(["WAITER_CALL:1:", "CLOSING_REQUESTED:2:"]) /* chave = status:id:horário (sem horário no fixture) */);
+  assert.equal(storage.get("iservi.readNotifications.u-read"), JSON.stringify(["WAITER_CALL:1:", "CLOSING_REQUESTED:2:"]) /* chave = status:id:horário (sem horário no fixture) */);
 });
 
 test("limpar esconde as atuais, marca pedido como visto e a próxima aparece", () => {
@@ -51,7 +51,7 @@ test("limpar esconde as atuais, marca pedido como visto e a próxima aparece", (
   assert.deepEqual(n.visibleNotifications([call, next]), [next]);
   // Poda: limpar de novo só guarda o que está presente.
   n.dismissNotifications([next]);
-  assert.equal(storage.get("mesaflow.dismissedNotifications.u-clear"), JSON.stringify(["WAITER_CALL:4:"]));
+  assert.equal(storage.get("iservi.dismissedNotifications.u-clear"), JSON.stringify(["WAITER_CALL:4:"]));
 });
 
 test("lidas/limpas são isoladas por usuário", () => {

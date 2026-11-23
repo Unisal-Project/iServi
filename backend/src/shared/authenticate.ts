@@ -1,8 +1,9 @@
+import type { UserRole } from "../modules/users/entity/user.entity.js";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 export type SessionUser = {
   active: boolean;
-  role: "ADMIN" | "EMPLOYEE";
+  role: UserRole;
   tokenVersion: number;
 };
 type SessionUserLoader = (id: bigint) => Promise<SessionUser | null>;

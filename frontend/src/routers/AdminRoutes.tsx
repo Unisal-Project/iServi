@@ -18,6 +18,9 @@ import {
 } from "@/pages/admin/MenuPreview/PreviewPages";
 import Dashboard from "@/pages/admin/Dashboard";
 import Reports from "@/pages/admin/Reports";
+import Users from "@/pages/admin/Users";
+import { getSession } from "@/services/auth.service";
+import { adminHome, canAccessAdminSection, canOperateSales } from "./admin-access";
 import Settings from "@/pages/admin/Settings";
 import Products from "@/pages/admin/Products";
 import Tables from "@/pages/admin/Table";
@@ -92,6 +95,8 @@ function OrderRoute({
 export function AdminRoutes() {
   const navigate = useNavigate();
   const location = useLocation();
+  const role = getSession()?.user.role;
+  const home = adminHome(role ?? "ADMIN");
   // Estado do atendimento sobrevive à troca de rotas dentro do administrativo.
   const tableState = useTables();
   const categoryState = useCategories();
@@ -103,7 +108,7 @@ export function AdminRoutes() {
   });
   const isCategories = location.pathname.includes("/categorias");
   const goTo = (id: string) => {
-    if (adminPaths[id]) navigate(adminPaths[id]);
+    if (adminPaths[id] && (!role || canAccessAdminSection(role, id))) navigate(adminPaths[id]);
   };
   const showOrder = (id?: number) => {
     orderState.openOrder(id);
@@ -123,7 +128,7 @@ export function AdminRoutes() {
           </Route>
         </Route>
         <Route element={<AdminWorkspace />}>
-          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route index element={<Navigate to={home} replace />} />
           <Route
             path="dashboard"
             element={
@@ -160,7 +165,7 @@ export function AdminRoutes() {
                 state={tableState}
                 orders={orderState.orders}
                 onViewOrder={showOrder}
-                onLaunchOrder={(tableId) => {
+                onLaunchOrder={role && !canOperateSales(role) ? undefined : (tableId) => {
                   orderState.setIsCreatingOrder(true, tableId);
                   navigate(adminPaths.orders);
                 }}
@@ -203,6 +208,7 @@ export function AdminRoutes() {
               />
             }
           />
+          <Route path="usuarios" element={<Users onNavigate={goTo} />} />
           <Route path="relatorios" element={<Reports onNavigate={goTo} />} />
           <Route
             path="promocoes"
@@ -214,7 +220,7 @@ export function AdminRoutes() {
           />
           <Route
             path="*"
-            element={<Navigate to="/admin/dashboard" replace />}
+            element={<Navigate to={home} replace />}
           />
         </Route>
       </Routes>

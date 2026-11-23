@@ -76,7 +76,7 @@ test("confirmação diferente não envia nada", async () => {
 });
 
 test("sucesso chama o service, limpa os campos e mantém a sessão", async () => {
-  store.set("mesaflow.session", session);
+  store.set("iservi.session", session);
   let body;
   globalThis.fetch = async (url, options) => {
     assert.match(url, /\/auth\/password$/);
@@ -102,11 +102,11 @@ test("sucesso chama o service, limpa os campos e mantém a sessão", async () =>
   });
   assert.equal(hook.success, "Senha alterada com sucesso");
   assert.equal(hook.error, "");
-  assert.equal(store.get("mesaflow.session"), session);
+  assert.equal(store.get("iservi.session"), session);
 });
 
 test("erro do backend aparece e os campos ficam preenchidos", async () => {
-  store.set("mesaflow.session", session);
+  store.set("iservi.session", session);
   globalThis.fetch = async () =>
     Response.json({ message: "Senha atual incorreta" }, { status: 400 });
   const render = createHookRunner(() => useChangePassword());
@@ -120,5 +120,5 @@ test("erro do backend aparece e os campos ficam preenchidos", async () => {
   const hook = render();
   assert.equal(hook.error, "Senha atual incorreta");
   assert.deepEqual(hook.form, form);
-  assert.equal(store.get("mesaflow.session"), session);
+  assert.equal(store.get("iservi.session"), session);
 });

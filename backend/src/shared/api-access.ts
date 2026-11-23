@@ -1,7 +1,10 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
+import type { UserRole } from "../modules/users/entity/user.entity.js";
 import { authenticate } from "./authenticate.js";
 
 const publicRoutes = new Set([
+  // Esta rota verifica a credencial do cliente no próprio handler.
+  "GET /client/payment-confirmation",
   "GET /health",
   "GET /settings/public",
   "POST /auth/login",
@@ -14,15 +17,15 @@ const publicRoutes = new Set([
   "POST /tables/by-token/:token/orders",
   "POST /tables/by-token/:token/request-closing",
   "POST /tables/by-token/:token/call-waiter",
+  "GET /client/notifications/public-key",
+  "POST /client/notifications/subscribe",
 ]);
 
-// Rotas de gestão: criar contas, catálogo, cadastro de mesas,
-// cancelamentos e relatórios. O restante da operação (mesas, pedidos,
-// atendimentos, pagamentos) fica liberado para qualquer usuário autenticado.
-const adminRoutes = new Set([
-  "POST /auth/register",
+const managementRoutes = new Set([
+  "GET /settings",
   "PUT /settings",
   "POST /settings/banner",
+  "DELETE /settings/banner",
   "POST /categories",
   "PUT /categories/:id",
   "DELETE /categories/:id",
@@ -37,20 +40,80 @@ const adminRoutes = new Set([
   "POST /tables",
   "PUT /tables/:id",
   "DELETE /tables/:id",
-  "POST /orders/:id/cancel",
   "GET /attendances/cancelled",
+]);
+
+const commonRoutes = new Set([
+  "GET /settings/operation",
+  "POST /auth/logout",
+  "PATCH /auth/me",
+  "PATCH /auth/password",
+  "POST /auth/me/avatar",
+  "GET /tables",
+  "GET /tables/:id",
+  "PATCH /tables/:id/status",
+  "GET /orders",
+  "GET /attendances/:tableId/open",
+  "GET /attendances/closing-requested",
+  "POST /attendances",
+  "PATCH /attendances/:attendanceId/request-closing",
+  "GET /waiter-calls",
+  "PATCH /waiter-calls/:id/attend",
+]);
+
+const paymentOperationRoutes = new Set([
+  "GET /tables/:id/qrcode",
+  "POST /orders",
+  "POST /tables/:id/orders",
+  "PUT /orders/:id/items",
+  "GET /attendances/:attendanceId/orders",
+  "GET /attendances/:attendanceId/total",
+  "POST /attendances/:attendanceId/close",
+  "POST /attendances/:attendanceId/confirm-payment",
+]);
+
+const userManagementRoutes = new Set([
+  "POST /auth/register",
+  "GET /users",
+  "GET /users/:id",
+  "PATCH /users/:id",
+  "DELETE /users/:id",
+]);
+
+const restaurantAdminRoutes = new Set([
+  "POST /orders/:id/cancel",
+  "PATCH /attendances/:attendanceId/request-cancelled",
   "POST /attendances/:attendanceId/reopen",
   "GET /reports/sales",
 ]);
+
+export const canManageUsers = (role: UserRole) => role === "PLATFORM_ADMIN";
+
+export const canManageRestaurant = (role: UserRole) =>
+  role === "ADMIN" || role === "PLATFORM_ADMIN";
+
+export const canAccessOrderAmounts = (role?: UserRole) =>
+  role === "ADMIN" || role === "EMPLOYEE";
 
 export async function requireApiAuthentication(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
-  const route = `${request.method} ${request.routeOptions.url?.replace(/^\/api\/v1/, "")}`;
+  const method = request.method === "HEAD" ? "GET" : request.method;
+  const route = `${method} ${request.routeOptions.url?.replace(/^\/api\/v1/, "")}`;
   if (publicRoutes.has(route)) return;
   await authenticate(request, reply);
   if (reply.sent) return;
-  if (adminRoutes.has(route) && request.user.role !== "ADMIN")
-    return reply.status(403).send({ message: "Acesso negado" });
+
+  const { role } = request.user;
+  if (
+    commonRoutes.has(route) ||
+    (canManageUsers(role) && userManagementRoutes.has(route)) ||
+    (canManageRestaurant(role) && managementRoutes.has(route)) ||
+    (canAccessOrderAmounts(role) && paymentOperationRoutes.has(route)) ||
+    (role === "ADMIN" && restaurantAdminRoutes.has(route))
+  )
+    return;
+
+  return reply.status(403).send({ message: "Acesso negado" });
 }

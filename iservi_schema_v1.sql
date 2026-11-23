@@ -1,0 +1,668 @@
+-- =====================================================-- iServi - Schema do Banco de Dados MariaDB
+-- Versão inicial (V1)
+-- =====================================================--
+-- O banco deve ser selecionado por quem executa este arquivo. No Docker
+-- Compose, MARIADB_DATABASE cria o banco e o script é executado nele.
+-- Isso evita criar as tabelas em um banco diferente do DATABASE_URL da API.
+
+-- =====================================================-- 1. Usuários
+-- =====================================================
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name VARCHAR(120) NOT NULL,
+    email VARCHAR(180) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role ENUM('ADMIN', 'EMPLOYEE', 'PLATFORM_ADMIN') NOT NULL DEFAULT 'EMPLOYEE',
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    token_version INT NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_users_email (email)
+) ENGINE=InnoDB;
+
+-- Revogação de sessões: o JWT leva a versão e deixa de valer quando ela sobe.
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS token_version INT NOT NULL DEFAULT 0 AFTER active;
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(255) NULL AFTER name;
+
+
+-- Inclui o perfil de suporte em volumes de desenvolvimento já existentes.
+ALTER TABLE users
+    MODIFY COLUMN role ENUM('ADMIN', 'EMPLOYEE', 'PLATFORM_ADMIN') NOT NULL DEFAULT 'EMPLOYEE';
+
+-- =====================================================-- 2. Categorias
+-- =====================================================
+CREATE TABLE IF NOT EXISTS categories (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(255) NULL,
+    promo_type ENUM('PERCENT', 'AMOUNT') NULL,
+    promo_value DECIMAL(10,2) NULL,
+    promo_active BOOLEAN NOT NULL DEFAULT FALSE,
+    promo_starts_at DATETIME NULL,
+    promo_ends_at DATETIME NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_categories_name (name)
+) ENGINE=InnoDB;
+
+
+-- =====================================================-- 3. Produtos
+-- =====================================================
+CREATE TABLE IF NOT EXISTS products (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    category_id BIGINT UNSIGNED NULL,
+    name VARCHAR(150) NOT NULL,
+    description TEXT NULL,
+    image_url VARCHAR(2048) NULL,
+    image_url_2 VARCHAR(2048) NULL,
+    image_url_3 VARCHAR(2048) NULL,
+    price DECIMAL(10,2) NOT NULL,
+    promo_type ENUM('PERCENT', 'AMOUNT') NULL,
+    promo_value DECIMAL(10,2) NULL,
+    promo_active BOOLEAN NOT NULL DEFAULT FALSE,
+    promo_starts_at DATETIME NULL,
+    promo_ends_at DATETIME NULL,
+    stock_quantity INT NOT NULL DEFAULT 0,
+    track_stock BOOLEAN NOT NULL DEFAULT TRUE,
+    featured BOOLEAN NOT NULL DEFAULT FALSE,
+    available BOOLEAN NOT NULL DEFAULT TRUE,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+
+    CONSTRAINT fk_products_category
+        FOREIGN KEY (category_id)
+        REFERENCES categories(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT chk_products_price
+        CHECK (price >= 0),
+
+    CONSTRAINT chk_products_stock
+        CHECK (stock_quantity >= 0),
+
+    KEY idx_products_category_id (category_id),
+    KEY idx_products_active_available (active, available)
+) ENGINE=InnoDB;
+
+-- Mantém bancos criados antes da inclusão de imagens de produto compatíveis
+-- quando o database-init reaplica este schema idempotente.
+ALTER TABLE products
+    ADD COLUMN IF NOT EXISTS image_url VARCHAR(2048) NULL AFTER description;
+
+-- Até 3 fotos por produto; image_url continua sendo a capa.
+ALTER TABLE products
+    ADD COLUMN IF NOT EXISTS image_url_2 VARCHAR(2048) NULL AFTER image_url,
+    ADD COLUMN IF NOT EXISTS image_url_3 VARCHAR(2048) NULL AFTER image_url_2;
+
+-- Produto sem controle de estoque nunca esgota; existentes continuam controlados.
+ALTER TABLE products
+    ADD COLUMN IF NOT EXISTS track_stock BOOLEAN NOT NULL DEFAULT TRUE AFTER stock_quantity;
+
+-- Destaque escolhido pelo admin, desligado para produtos existentes.
+ALTER TABLE products
+    ADD COLUMN IF NOT EXISTS featured BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Produto INATIVO pode ficar sem categoria (categoria excluída); ativo sempre tem.
+-- Idempotente: bancos de dev existentes também recebem a coluna anulável.
+ALTER TABLE products
+    MODIFY category_id BIGINT UNSIGNED NULL;
+
+-- Promoção opcional (regra 8): desligada por padrão; datas nulas = sem limite.
+ALTER TABLE categories
+    ADD COLUMN IF NOT EXISTS promo_type ENUM('PERCENT', 'AMOUNT') NULL AFTER description,
+    ADD COLUMN IF NOT EXISTS promo_value DECIMAL(10,2) NULL AFTER promo_type,
+    ADD COLUMN IF NOT EXISTS promo_active BOOLEAN NOT NULL DEFAULT FALSE AFTER promo_value,
+    ADD COLUMN IF NOT EXISTS promo_starts_at DATETIME NULL AFTER promo_active,
+    ADD COLUMN IF NOT EXISTS promo_ends_at DATETIME NULL AFTER promo_starts_at;
+
+ALTER TABLE products
+    ADD COLUMN IF NOT EXISTS promo_type ENUM('PERCENT', 'AMOUNT') NULL AFTER price,
+    ADD COLUMN IF NOT EXISTS promo_value DECIMAL(10,2) NULL AFTER promo_type,
+    ADD COLUMN IF NOT EXISTS promo_active BOOLEAN NOT NULL DEFAULT FALSE AFTER promo_value,
+    ADD COLUMN IF NOT EXISTS promo_starts_at DATETIME NULL AFTER promo_active,
+    ADD COLUMN IF NOT EXISTS promo_ends_at DATETIME NULL AFTER promo_starts_at;
+
+
+-- =====================================================-- 4. Mesas
+-- =====================================================
+-- Migração incremental, reaplicável e sem alteração dos produtos existentes.
+CREATE TABLE IF NOT EXISTS product_categories (
+    product_id BIGINT UNSIGNED NOT NULL,
+    category_id BIGINT UNSIGNED NOT NULL,
+    PRIMARY KEY (product_id, category_id),
+    KEY idx_product_categories_category_id (category_id),
+    CONSTRAINT fk_product_categories_product FOREIGN KEY (product_id)
+        REFERENCES products(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_product_categories_category FOREIGN KEY (category_id)
+        REFERENCES categories(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS restaurant_tables (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    number INT UNSIGNED NOT NULL,
+    name VARCHAR(100) NULL,
+    qr_token VARCHAR(120) NOT NULL,
+    seats SMALLINT UNSIGNED NOT NULL DEFAULT 4,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+
+    UNIQUE KEY uq_restaurant_tables_number (number),
+    UNIQUE KEY uq_restaurant_tables_qr_token (qr_token)
+) ENGINE=InnoDB;
+
+-- Bancos criados antes da capacidade da mesa recebem a coluna sem perder dados.
+ALTER TABLE restaurant_tables
+    ADD COLUMN IF NOT EXISTS seats SMALLINT UNSIGNED NOT NULL DEFAULT 4 AFTER qr_token;
+
+
+-- =====================================================-- 5. Atendimentos / Comandas
+-- =====================================================
+CREATE TABLE IF NOT EXISTS attendances (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    table_id BIGINT UNSIGNED NOT NULL,
+
+    status ENUM(
+        'OPEN',
+        'CLOSING_REQUESTED',
+        'CLOSED',
+        'CANCELLED',
+        'AWAITING_PAYMENT'
+    ) NOT NULL DEFAULT 'OPEN',
+
+    opened_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    closing_requested_at DATETIME NULL,
+    closed_at DATETIME NULL,
+    closed_by BIGINT UNSIGNED NULL,
+
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- Garante no banco que uma mesa não possua dois atendimentos
+    -- OPEN/CLOSING_REQUESTED/AWAITING_PAYMENT ao mesmo tempo.
+    active_table_id BIGINT UNSIGNED
+        AS (
+            CASE
+                WHEN status IN ('OPEN', 'CLOSING_REQUESTED', 'AWAITING_PAYMENT')
+                THEN table_id
+                ELSE NULL
+            END
+        ) STORED,
+
+    PRIMARY KEY (id),
+
+    CONSTRAINT fk_attendances_table
+        FOREIGN KEY (table_id)
+        REFERENCES restaurant_tables(id)
+        -- MariaDB não permite ON UPDATE CASCADE aqui porque table_id também
+        -- alimenta a coluna gerada/indexada active_table_id (erro 1901).
+        -- IDs de mesa são imutáveis, portanto RESTRICT é a regra adequada.
+        ON UPDATE RESTRICT
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_attendances_closed_by
+        FOREIGN KEY (closed_by)
+        REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL,
+
+    UNIQUE KEY uq_attendances_one_active_per_table (active_table_id),
+
+    KEY idx_attendances_table_id (table_id),
+    KEY idx_attendances_status (status),
+    KEY idx_attendances_opened_at (opened_at),
+    KEY idx_attendances_closed_at (closed_at)
+) ENGINE=InnoDB;
+
+-- Atualiza também volumes existentes, sem apagar atendimentos ou seu histórico.
+-- Mantém os valores anteriores do ENUM na mesma ordem.
+ALTER TABLE attendances
+    MODIFY COLUMN status ENUM('OPEN', 'CLOSING_REQUESTED', 'CLOSED', 'CANCELLED', 'AWAITING_PAYMENT') NOT NULL DEFAULT 'OPEN',
+    MODIFY COLUMN active_table_id BIGINT UNSIGNED
+        AS (CASE WHEN status IN ('OPEN', 'CLOSING_REQUESTED', 'AWAITING_PAYMENT')
+            THEN table_id ELSE NULL END) STORED;
+
+-- Taxa de serviço cobrada no fechamento (0 quando isentada).
+ALTER TABLE attendances
+    ADD COLUMN IF NOT EXISTS service_fee DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER closed_by;
+
+
+-- =====================================================-- 6. Pedidos
+-- =====================================================
+CREATE TABLE IF NOT EXISTS orders (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    attendance_id BIGINT UNSIGNED NOT NULL,
+
+    status ENUM(
+        'PENDING',
+        'CANCELLED'
+    ) NOT NULL DEFAULT 'PENDING',
+
+    notes TEXT NULL,
+    customer_name VARCHAR(100) NULL,
+
+    -- NULL quando o pedido for realizado diretamente pelo cliente.
+    created_by BIGINT UNSIGNED NULL,
+
+    -- Dados de cancelamento.
+    cancelled_at DATETIME NULL,
+    cancelled_by BIGINT UNSIGNED NULL,
+    cancellation_source ENUM('CUSTOMER', 'EMPLOYEE', 'ADMIN') NULL,
+    cancellation_reason VARCHAR(500) NULL,
+    restore_stock BOOLEAN NULL,
+
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+
+    CONSTRAINT fk_orders_attendance
+        FOREIGN KEY (attendance_id)
+        REFERENCES attendances(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_orders_created_by
+        FOREIGN KEY (created_by)
+        REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_orders_cancelled_by
+        FOREIGN KEY (cancelled_by)
+        REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL,
+
+    KEY idx_orders_attendance_id (attendance_id),
+    KEY idx_orders_status (status),
+    KEY idx_orders_created_at (created_at),
+    KEY idx_orders_cancelled_at (cancelled_at)
+) ENGINE=InnoDB;
+
+-- CREATE TABLE IF NOT EXISTS não atualiza volumes existentes. Mantém a
+-- migração remove-order-tracking.sql também no bootstrap reaplicável local:
+-- estados antigos impedem o Prisma de carregar toda a lista de pedidos.
+UPDATE orders SET status = 'PENDING'
+WHERE status NOT IN ('PENDING', 'CANCELLED');
+
+ALTER TABLE orders
+    MODIFY COLUMN status ENUM('PENDING', 'CANCELLED') NOT NULL DEFAULT 'PENDING';
+
+
+-- =====================================================-- 7. Itens do Pedido
+-- =====================================================
+CREATE TABLE IF NOT EXISTS order_items (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    order_id BIGINT UNSIGNED NOT NULL,
+    product_id BIGINT UNSIGNED NOT NULL,
+
+    quantity INT UNSIGNED NOT NULL,
+    unit_price DECIMAL(10,2) NOT NULL,
+    notes VARCHAR(500) NULL,
+
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+
+    CONSTRAINT fk_order_items_order
+        FOREIGN KEY (order_id)
+        REFERENCES orders(id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_order_items_product
+        FOREIGN KEY (product_id)
+        REFERENCES products(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT chk_order_items_quantity
+        CHECK (quantity > 0),
+
+    CONSTRAINT chk_order_items_unit_price
+        CHECK (unit_price >= 0),
+
+    KEY idx_order_items_order_id (order_id),
+    KEY idx_order_items_product_id (product_id)
+) ENGINE=InnoDB;
+
+
+-- =====================================================-- 8. Movimentações de Estoque
+-- =====================================================
+CREATE TABLE IF NOT EXISTS stock_movements (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    product_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT UNSIGNED NULL,
+    order_id BIGINT UNSIGNED NULL,
+    order_item_id BIGINT UNSIGNED NULL,
+
+    type ENUM(
+        'ENTRY',
+        'EXIT',
+        'ADJUSTMENT',
+        'SALE',
+        'CANCELLATION'
+    ) NOT NULL,
+
+    -- Pode ser positivo ou negativo.
+    -- Exemplo: venda de 2 unidades = -2.
+    quantity INT NOT NULL,
+
+    reason VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+
+    CONSTRAINT fk_stock_movements_product
+        FOREIGN KEY (product_id)
+        REFERENCES products(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_stock_movements_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_stock_movements_order
+        FOREIGN KEY (order_id)
+        REFERENCES orders(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_stock_movements_order_item
+        FOREIGN KEY (order_item_id)
+        REFERENCES order_items(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL,
+
+    CONSTRAINT chk_stock_movements_quantity
+        CHECK (quantity <> 0),
+
+    KEY idx_stock_movements_product_id (product_id),
+    KEY idx_stock_movements_order_id (order_id),
+    KEY idx_stock_movements_order_item_id (order_item_id),
+    KEY idx_stock_movements_created_at (created_at)
+) ENGINE=InnoDB;
+
+
+-- =====================================================-- 9. Pagamentos
+-- =====================================================
+CREATE TABLE IF NOT EXISTS payments (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    attendance_id BIGINT UNSIGNED NOT NULL,
+
+    amount DECIMAL(10,2) NOT NULL,
+
+    status ENUM(
+        'PENDING',
+        'PAID',
+        'CANCELLED'
+    ) NOT NULL DEFAULT 'PENDING',
+
+    paid_at DATETIME NULL,
+    created_by BIGINT UNSIGNED NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+
+    CONSTRAINT fk_payments_attendance
+        FOREIGN KEY (attendance_id)
+        REFERENCES attendances(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_payments_created_by
+        FOREIGN KEY (created_by)
+        REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL,
+
+    CONSTRAINT chk_payments_amount
+        CHECK (amount > 0),
+
+    KEY idx_payments_attendance_id (attendance_id),
+    KEY idx_payments_status (status),
+    KEY idx_payments_paid_at (paid_at)
+) ENGINE=InnoDB;
+
+-- Forma de pagamento e detalhes do recebimento; um registro por forma usada.
+ALTER TABLE payments
+    ADD COLUMN IF NOT EXISTS method ENUM('CASH', 'PIX', 'CREDIT_CARD', 'DEBIT_CARD') NULL AFTER amount,
+    ADD COLUMN IF NOT EXISTS received_amount DECIMAL(10,2) NULL AFTER method,
+    ADD COLUMN IF NOT EXISTS change_amount DECIMAL(10,2) NULL AFTER received_amount,
+    ADD COLUMN IF NOT EXISTS processing_fee DECIMAL(10,2) NULL AFTER change_amount;
+
+
+-- =====================================================-- 10. Fila de Impressão / Integração com ESP32
+-- =====================================================
+CREATE TABLE IF NOT EXISTS print_jobs (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+
+    order_id BIGINT UNSIGNED NULL,
+    attendance_id BIGINT UNSIGNED NULL,
+
+    type ENUM(
+        'ORDER',
+        'BILL'
+    ) NOT NULL,
+
+    status ENUM(
+        'PENDING',
+        'SENT',
+        'PRINTED',
+        'FAILED'
+    ) NOT NULL DEFAULT 'PENDING',
+
+    attempts INT UNSIGNED NOT NULL DEFAULT 0,
+    last_error TEXT NULL,
+
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    processed_at DATETIME NULL,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+
+    CONSTRAINT fk_print_jobs_order
+        FOREIGN KEY (order_id)
+        REFERENCES orders(id)
+        ON UPDATE RESTRICT
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_print_jobs_attendance
+        FOREIGN KEY (attendance_id)
+        REFERENCES attendances(id)
+        ON UPDATE RESTRICT
+        ON DELETE RESTRICT,
+
+    CONSTRAINT chk_print_jobs_reference
+        CHECK (order_id IS NOT NULL OR attendance_id IS NOT NULL),
+
+    KEY idx_print_jobs_status (status),
+    KEY idx_print_jobs_order_id (order_id),
+    KEY idx_print_jobs_attendance_id (attendance_id),
+    KEY idx_print_jobs_created_at (created_at)
+) ENGINE=InnoDB;
+
+
+-- =====================================================-- Views úteis para a primeira versão
+-- =====================================================
+-- Total acumulado de cada atendimento, desconsiderando pedidos cancelados.
+CREATE OR REPLACE VIEW vw_attendance_totals AS
+SELECT
+    a.id AS attendance_id,
+    a.table_id,
+    a.status,
+    COALESCE(SUM(oi.quantity * oi.unit_price), 0) AS total
+FROM attendances a
+LEFT JOIN orders o
+    ON o.attendance_id = a.id
+    AND o.status <> 'CANCELLED'
+LEFT JOIN order_items oi
+    ON oi.order_id = o.id
+GROUP BY
+    a.id,
+    a.table_id,
+    a.status;
+
+
+-- Total efetivamente pago por atendimento.
+CREATE OR REPLACE VIEW vw_attendance_payments AS
+SELECT
+    attendance_id,
+    COALESCE(SUM(amount), 0) AS total_paid
+FROM payments
+WHERE status = 'PAID'
+GROUP BY attendance_id;
+
+
+-- =====================================================-- Observações de regra de negócio
+-- =====================================================--
+-- 1. O QR Code identifica a mesa através de restaurant_tables.qr_token.
+--
+-- 2. Uma mesa só pode ter um atendimento OPEN/CLOSING_REQUESTED/AWAITING_PAYMENT por vez.
+--    Essa regra também é garantida por uq_attendances_one_active_per_table.
+--
+-- 3. Um atendimento pode possuir vários pedidos.
+--
+-- 4. order_items.unit_price guarda o preço do produto no momento da venda.
+--
+-- 5. O estoque é debitado no momento da criação do pedido.
+--
+-- 6. Alterações de quantidade feitas por funcionário/admin devem movimentar
+--    somente a diferença de estoque e registrar ADJUSTMENT.
+--
+-- 7. O cliente pode cancelar um pedido por até 5 minutos após created_at.
+--    Essa regra é validada no backend.
+--
+-- 8. Funcionário/admin pode cancelar pedidos após esse prazo, registrando
+--    responsável e motivo. restore_stock define se o estoque deve ser reposto.
+--
+-- 9. Cancelamentos que restauram estoque devem registrar CANCELLATION.
+--
+-- 10. Produtos com estoque igual a zero devem ser tratados pelo backend
+--     como indisponíveis para novos pedidos.
+--
+-- 11. O backend deve impedir novos pedidos em atendimentos CLOSED/CANCELLED.
+--
+-- 12. Criação, alteração e cancelamento de pedidos devem usar transações
+--     para manter pedido, estoque e histórico consistentes.
+--
+-- 13. Um pedido já CANCELLED não pode ser cancelado novamente.
+--
+-- 14. Faturamento diário/mensal deve ser calculado a partir de payments
+--     com status PAID, evitando duplicação de dados.
+--
+-- 15. A fila print_jobs permite reprocessar impressões caso o ESP32 ou
+--     impressora estejam temporariamente indisponíveis.
+--
+-- =====================================================
+
+-- Migração incremental reaplicável, seguindo as demais migrações SQL do projeto.
+CREATE TABLE IF NOT EXISTS waiter_calls (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    table_id BIGINT UNSIGNED NOT NULL,
+    status ENUM('PENDING', 'ATTENDED') NOT NULL DEFAULT 'PENDING',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    attended_at DATETIME NULL,
+    pending_table_id BIGINT UNSIGNED GENERATED ALWAYS AS
+        (CASE WHEN status = 'PENDING' THEN table_id ELSE NULL END) STORED,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_waiter_calls_pending_table (pending_table_id),
+    KEY idx_waiter_calls_status_created (status, created_at),
+    CONSTRAINT fk_waiter_calls_table FOREIGN KEY (table_id)
+        REFERENCES restaurant_tables(id) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE=InnoDB;
+
+-- Configuração do restaurante único. Aditivo, idempotente e sem sobrescrever valores salvos.
+CREATE TABLE IF NOT EXISTS restaurant_settings (
+    id TINYINT UNSIGNED NOT NULL DEFAULT 1,
+    service_fee_rate DECIMAL(5,2) NOT NULL DEFAULT 10.00,
+    name VARCHAR(120) NULL,
+    address VARCHAR(255) NULL,
+    opening_hours VARCHAR(255) NULL,
+    contact VARCHAR(120) NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    CONSTRAINT chk_restaurant_settings_singleton CHECK (id = 1),
+    CONSTRAINT chk_restaurant_settings_rate CHECK (service_fee_rate BETWEEN 0 AND 20)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+INSERT IGNORE INTO restaurant_settings (id, service_fee_rate) VALUES (1, 10.00);
+
+ALTER TABLE restaurant_settings
+    ADD COLUMN IF NOT EXISTS banner_image_url VARCHAR(255) NULL AFTER name;
+-- =====================================================-- Número do pedido por dia de operação (mesmo conteúdo de
+-- backend/prisma/sql/order-daily-number.sql; idempotente).
+-- =====================================================
+-- Dia de operação: fuso do restaurante + hora de virada (03:40 ainda é o dia anterior).
+ALTER TABLE restaurant_settings
+    ADD COLUMN IF NOT EXISTS day_cutoff_hour TINYINT UNSIGNED NOT NULL DEFAULT 5 AFTER contact,
+    ADD COLUMN IF NOT EXISTS timezone VARCHAR(64) NOT NULL DEFAULT 'America/Sao_Paulo' AFTER day_cutoff_hour,
+    ADD CONSTRAINT IF NOT EXISTS chk_restaurant_settings_cutoff CHECK (day_cutoff_hour BETWEEN 0 AND 23);
+
+-- Último número usado em cada dia (V2: ganha restaurant_id na chave).
+CREATE TABLE IF NOT EXISTS order_daily_counters (
+    business_date DATE NOT NULL,
+    last_number INT UNSIGNED NOT NULL,
+    PRIMARY KEY (business_date)
+) ENGINE=InnoDB;
+
+ALTER TABLE orders
+    ADD COLUMN IF NOT EXISTS business_date DATE NULL AFTER attendance_id,
+    ADD COLUMN IF NOT EXISTS daily_number INT UNSIGNED NULL AFTER business_date;
+
+-- Backfill: created_at está em UTC. Sem as tabelas de fuso do MariaDB,
+-- CONVERT_TZ com nome devolve NULL e cai no -03:00 (São Paulo, sem horário de verão).
+SET @mf_tz = COALESCE((SELECT timezone FROM restaurant_settings WHERE id = 1), 'America/Sao_Paulo');
+SET @mf_cutoff = COALESCE((SELECT day_cutoff_hour FROM restaurant_settings WHERE id = 1), 5);
+
+UPDATE orders
+SET business_date = DATE(
+        COALESCE(CONVERT_TZ(created_at, '+00:00', @mf_tz), CONVERT_TZ(created_at, '+00:00', '-03:00'))
+        - INTERVAL @mf_cutoff HOUR)
+WHERE business_date IS NULL;
+
+-- Numera por dia em ordem de created_at, id, continuando depois do maior número já usado no dia.
+UPDATE orders o
+JOIN (
+    SELECT pending.id,
+           ROW_NUMBER() OVER (PARTITION BY pending.business_date ORDER BY pending.created_at, pending.id)
+           + COALESCE(used.max_number, 0) AS number
+    FROM orders pending
+    LEFT JOIN (
+        SELECT business_date, MAX(daily_number) AS max_number
+        FROM orders
+        WHERE daily_number IS NOT NULL
+        GROUP BY business_date
+    ) used ON used.business_date = pending.business_date
+    WHERE pending.daily_number IS NULL
+) numbered ON numbered.id = o.id
+SET o.daily_number = numbered.number;
+
+-- Contadores coerentes com os números já usados (nunca diminuem).
+INSERT INTO order_daily_counters (business_date, last_number)
+SELECT business_date, MAX(daily_number) FROM orders GROUP BY business_date
+ON DUPLICATE KEY UPDATE last_number = GREATEST(last_number, VALUES(last_number));
+
+-- Todo pedido tem número a partir daqui. Pare o backend antigo antes de rodar:
+-- ele não preenche estas colunas e os pedidos dele falhariam.
+ALTER TABLE orders
+    MODIFY COLUMN business_date DATE NOT NULL,
+    MODIFY COLUMN daily_number INT UNSIGNED NOT NULL,
+    ADD UNIQUE KEY IF NOT EXISTS uq_orders_business_date_daily_number (business_date, daily_number);

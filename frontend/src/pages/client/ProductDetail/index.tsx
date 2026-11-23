@@ -1,5 +1,7 @@
 import { ClientTableHeader } from "@/components/layout/ClientTableHeader";
 import { ChevronLeft } from "lucide-react";
+import { useRef, useState } from "react";
+import type { Product } from "@/services/menu.service";
 
 import {
   
@@ -19,6 +21,57 @@ import { resolveImageUrl } from "@/utils/resolveImageUrl";
 
 import "./styles.scss";
 
+function ProductGallery({ product }: { product: Product }) {
+  const photoTrack = useRef<HTMLDivElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const photos = [...new Set([product.imageUrl, ...(product.imageUrls ?? [])]
+    .map(resolveImageUrl)
+    .filter((url) => url !== undefined))];
+  const goToPhoto = (index: number) => {
+    const track = photoTrack.current;
+    if (track) track.scrollTo({ left: index * track.clientWidth });
+  };
+
+  return (
+    <div className="product-detail-hero">
+      <div
+        className="product-detail-photo-track"
+        ref={photoTrack}
+        onScroll={({ currentTarget }) => {
+          if (currentTarget.clientWidth) {
+            const index = Math.round(currentTarget.scrollLeft / currentTarget.clientWidth);
+            setActiveIndex(Math.max(0, Math.min(index, photos.length - 1)));
+          }
+        }}
+      >
+        {photos.map((photo, index) => (
+          <img
+            className="product-detail-photo"
+            key={photo}
+            src={photo}
+            alt={photos.length > 1 ? `${product.name} — foto ${index + 1}` : product.name}
+            loading={index === 0 ? "eager" : "lazy"}
+            draggable={false}
+          />
+        ))}
+      </div>
+      {photos.length > 1 && (
+        <div className="product-detail-photo-options" role="group" aria-label="Fotos do produto">
+          {photos.map((photo, index) => (
+            <button
+              key={photo}
+              type="button"
+              aria-label={`Ver foto ${index + 1} de ${photos.length}`}
+              aria-pressed={index === activeIndex}
+              onClick={() => goToPhoto(index)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ProductDetail({ product, categoryName, onBack, onAdded, onGoToCart, onNavigate }: ProductDetailProps) {
   const { quantity, setQuantity, notes, setUnitNotes, maxQuantity, handleAdd } = useProductDetail(product, onAdded);
 
@@ -27,9 +80,7 @@ export function ProductDetail({ product, categoryName, onBack, onAdded, onGoToCa
       <ClientTableHeader
         backAction={<button type="button" className="product-detail-back" aria-label="Voltar" onClick={onBack}><ChevronLeft aria-hidden="true" /></button>}
          />
-      <div className="product-detail-hero">
-        {product.imageUrl ? <img src={resolveImageUrl(product.imageUrl)} alt={product.name} /> : <div aria-hidden="true" />}
-      </div>
+      <ProductGallery key={product.id} product={product} />
       <main className="product-detail-content">
         {categoryName && <span className="product-detail-category"><span aria-hidden="true" />{categoryName}</span>}
         <h1>{product.name}</h1>

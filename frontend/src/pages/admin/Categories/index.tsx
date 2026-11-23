@@ -1,3 +1,4 @@
+import { canManageRestaurant } from "@/routers/admin-access";
 import { useState } from "react";
 import { CheckSquare, ChevronDown, List, Plus, Search, SquareMinus, Tag } from "lucide-react";
 import { Button, Checkbox, ConfirmationDialog, ListPager } from "@/components";
@@ -31,7 +32,7 @@ export default function Categories({ hideTabs, onPromote, state, products, onSho
   const [sortOrder, setSortOrder] = useState("default");
   const [selected, setSelected] = useState<string[]>([]);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
-  const isAdmin = getSession()?.user.role === "ADMIN";
+  const isAdmin = canManageRestaurant(getSession()?.user.role);
   const categories = state.filteredCategories
     .map((category) => ({ ...category, productCount: products.filter((product) => product.categoryId === category.id).length }))
     .filter((category) => (categoryFilter === "all" || String(category.id) === categoryFilter) &&

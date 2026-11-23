@@ -14,7 +14,7 @@ import {
 } from "@/services/orders.service";
 
 import { markOrderSeen } from "@/hooks/useAttendanceNotifications";
-import { fetchSettings } from "@/services/settings.service";
+import { fetchOperationalSettings } from "@/services/settings.service";
 import { businessToday, setDayCutoff, toBusinessDate } from "@/utils/businessDay";
 
 import type { RestaurantTable } from "../../Table/types/table.types";
@@ -76,7 +76,7 @@ export function toOrderItems(items: AdminOrderResponse["items"]) {
         productId: item.productId,
         name: item.productName,
         quantity: item.quantity,
-        unitPrice: Number(item.unitPrice),
+        unitPrice: Number(item.unitPrice ?? 0),
         unitObservations: notes,
       });
     }
@@ -136,7 +136,7 @@ export function toOrder(
     createdAt: response.createdAt,
     items: toOrderItems(response.items),
     observation: response.notes ?? undefined,
-    payment: closed
+    payment: closed && attendance.payments
       ? {
           // Os pagamentos pertencem à conta; aparecem no primeiro pedido dela.
           entries: firstOfAttendance
@@ -320,10 +320,10 @@ export function useOrder(
     [days, focusedOrderId],
   );
 
-  // Dia de operação: lê a virada de /settings uma vez (até lá vale o padrão 05:00).
+  // Dia de operação: lê a virada de /settings/operation uma vez (até lá vale o padrão 05:00).
   const [, setCutoffLoaded] = useState(false);
   useEffect(() => {
-    fetchSettings()
+    fetchOperationalSettings()
       .then((settings) => {
         setDayCutoff(settings.dayCutoffHour);
         setCutoffLoaded(true);

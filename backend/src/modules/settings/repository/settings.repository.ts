@@ -5,5 +5,5 @@ export type RestaurantSettings = SettingsResponse & {
 export interface SettingsRepository {
   get(): Promise<RestaurantSettings>;
   save(data: SettingsDTO): Promise<RestaurantSettings>;
-  saveBannerImage(url: string): Promise<RestaurantSettings>;
+  saveBannerImage(url: string | null): Promise<RestaurantSettings>;
 }
