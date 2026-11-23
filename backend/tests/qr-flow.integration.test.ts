@@ -29,9 +29,7 @@ test(
     const { readPaymentConfirmation } =
       await import("../src/modules/payments/payment-confirmation.js");
     const sharp = (await import("sharp")).default;
-    const uploadDirectory = await mkdtemp(
-      path.join(tmpdir(), "iservi-flow-"),
-    );
+    const uploadDirectory = await mkdtemp(path.join(tmpdir(), "iservi-flow-"));
     const catalog = new ProductService(
       new PrismaProductRepository(db),
       new LocalStorageService(uploadDirectory),

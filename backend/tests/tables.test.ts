@@ -187,10 +187,7 @@ test("changing the public origin keeps the token of an existing table", async ()
   const { service, repository, row } = fixture();
   const id = { id: row().id };
   const previous = new URL((await service.getTableById(id)).menuUrl);
-  const staging = new TableService(
-    repository,
-    "https://staging.iservi.com.br",
-  );
+  const staging = new TableService(repository, "https://staging.iservi.com.br");
   const current = new URL((await staging.getTableById(id)).menuUrl);
 
   assert.equal(current.origin, "https://staging.iservi.com.br");

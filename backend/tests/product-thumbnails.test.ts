@@ -179,9 +179,7 @@ test("script gera somente miniaturas ausentes e é idempotente", async () => {
 
 test("script sem uploads ainda informa zero miniaturas", async () => {
   const { generateThumbs } = await import("../scripts/generate-thumbs.js");
-  const directory = await mkdtemp(
-    path.join(tmpdir(), "iservi-empty-thumbs-"),
-  );
+  const directory = await mkdtemp(path.join(tmpdir(), "iservi-empty-thumbs-"));
   try {
     assert.equal(await generateThumbs(path.join(directory, "missing")), 0);
   } finally {

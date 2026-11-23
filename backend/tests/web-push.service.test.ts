@@ -5,7 +5,6 @@ import { env } from "../src/config/env.js";
 import { WebPushService } from "../src/shared/web-push/web-push.service.js";
 
 test("Web Push is disabled without VAPID configuration", (t) => {
-
   const originalEnv = { ...env };
 
   try {

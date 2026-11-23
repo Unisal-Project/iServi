@@ -71,7 +71,10 @@
     "zod": "^4.6.5"
   },
   "overrides": {
-    "glob": "^14.0.2"
+    "glob": "^14.0.2",
+    "@prisma/config": {
+      "effect": "3.22.1"
+    }
   },
   "type": "module",
   "devDependencies": {
