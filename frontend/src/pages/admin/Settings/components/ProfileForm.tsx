@@ -7,7 +7,7 @@ import {
   uploadProfileAvatar,
 } from "@/services/auth.service";
 import { assetUrl } from "@/api/client";
-import mesaFlowLogo from "@/assets/logotipo/logo_principal.png";
+import iServiLogo from "@/assets/logotipo/logo_principal.png";
 
 export function ProfileForm({ onSaved }: { onSaved: () => void }) {
   const user = getSession()?.user;
@@ -86,11 +86,11 @@ export function ProfileForm({ onSaved }: { onSaved: () => void }) {
         <div className="settings-profile-photo">
           <img
             className="settings-profile-photo-preview"
-            src={avatarPreview || assetUrl(user?.avatarUrl) || mesaFlowLogo}
+            src={avatarPreview || assetUrl(user?.avatarUrl) || iServiLogo}
             alt="Foto do perfil"
             onError={(event) => {
-              if (event.currentTarget.getAttribute("src") !== mesaFlowLogo)
-                event.currentTarget.src = mesaFlowLogo;
+              if (event.currentTarget.getAttribute("src") !== iServiLogo)
+                event.currentTarget.src = iServiLogo;
             }}
           />
           <div className="settings-profile-photo-controls">

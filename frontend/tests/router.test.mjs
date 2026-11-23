@@ -243,7 +243,7 @@ test("Sair limpa a sessão e volta ao login sem histórico", async () => {
   const { signOut } = await server.ssrLoadModule(
     "/src/services/auth.service.ts",
   );
-  const storage = new Map([["mesaflow.session", "{}"]]);
+  const storage = new Map([["iservi.session", "{}"]]);
   const previous = globalThis.localStorage;
   globalThis.localStorage = {
     getItem: (key) => storage.get(key) ?? null,
@@ -258,7 +258,7 @@ test("Sair limpa a sessão e volta ao login sem histórico", async () => {
     globalThis.localStorage = previous;
     delete window.location.replace;
   }
-  assert.equal(storage.has("mesaflow.session"), false);
+  assert.equal(storage.has("iservi.session"), false);
   assert.deepEqual(replaced, ["/login"]);
 });
 
@@ -296,5 +296,45 @@ test("rota de confirmação carrega somente com a sessão da mesa e não expõe 
     assert.doesNotMatch(renderConfirmation("mesa-a"), /Consultando pagamento|Pagamento confirmado/);
   } finally {
     globalThis.sessionStorage = previousSessionStorage;
+  }
+});
+
+test("RBAC bloqueia URLs e menus conforme o perfil, preservando Mesas e Pedidos", async () => {
+  const { RequireAuth } = await server.ssrLoadModule("/src/routers/AppRouter.tsx");
+  const { adminHome } = await server.ssrLoadModule("/src/routers/admin-access.ts");
+  const previousStorage = globalThis.localStorage;
+  const render = (url) => renderToString(createElement(
+    MemoryRouter,
+    { initialEntries: [url] },
+    createElement(Routes, null, createElement(Route, {
+      path: "/admin/*",
+      element: createElement(RequireAuth, null, createElement(AdminRoutes)),
+    })),
+  ));
+  try {
+    for (const role of ["ADMIN", "EMPLOYEE", "PLATFORM_ADMIN"]) {
+      globalThis.localStorage = { getItem: (key) => key === "iservi.session" ? JSON.stringify({
+        accessToken: `a.${btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 }))}.c`,
+        user: { id: "1", name: "Teste", role },
+      }) : null };
+      assert.equal(adminHome(role), role === "ADMIN" ? "/admin/dashboard" : "/admin/mesas");
+      const tables = render("/admin/mesas");
+      assert.match(tables, /Mapa de mesas/);
+      assert.match(render("/admin/pedidos"), /Pedidos registrados/);
+      for (const route of ["dashboard", "relatorios"]) {
+        assert.equal(render(`/admin/${route}`) === "", role !== "ADMIN", `${role}: ${route}`);
+      }
+      assert.equal(/>Dashboard</.test(tables), role === "ADMIN");
+      assert.equal(/>Relatórios</.test(tables), role === "ADMIN");
+      assert.equal(/>Usuários</.test(tables), role === "PLATFORM_ADMIN");
+      assert.equal(render("/admin/usuarios") === "", role !== "PLATFORM_ADMIN");
+      for (const route of ["configuracoes", "cardapio", "ver-cardapio"]) {
+        assert.equal(render(`/admin/${route}`) === "", role === "EMPLOYEE");
+      }
+      assert.equal(/Adicionar mesa/.test(tables), role !== "EMPLOYEE");
+      assert.equal(/Imprimir QR/.test(tables), role !== "PLATFORM_ADMIN");
+    }
+  } finally {
+    globalThis.localStorage = previousStorage;
   }
 });

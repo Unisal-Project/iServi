@@ -1,7 +1,7 @@
 import { adminPaths } from "@/routers/paths";
 
-/** Carrinho isolado da prévia; o do cliente ("mesaflow:cart") nunca é tocado. */
-export const PREVIEW_CART_KEY = "mesaflow:cart:admin-preview";
+/** Carrinho isolado da prévia; o do cliente ("iservi:cart") nunca é tocado. */
+export const PREVIEW_CART_KEY = "iservi:cart:admin-preview";
 
 export function resetPreviewCart() {
   try {

@@ -7,6 +7,6 @@ import { usePublicRestaurantSettings } from "@/contexts/restaurant-settings";
 export function ClientTableHeader(props: Omit<ComponentProps<typeof ClientHeader>, "title" | "subtitle" | "cartAction">) {
   const { tableLabel, guestName } = useClientTable();
   const settings = usePublicRestaurantSettings();
-  const title = tableLabel === "MesaFlow" ? settings?.name?.trim() || "MesaFlow" : tableLabel;
+  const title = tableLabel === "iServi" ? settings?.name?.trim() || "iServi" : tableLabel;
   return <ClientHeader {...props} cartAction={<RestaurantInfo details={settings ?? undefined} />} title={title} subtitle={guestName.trim() || undefined} />;
 }

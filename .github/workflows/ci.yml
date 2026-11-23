@@ -1,4 +1,4 @@
-name: MesaFlow CI
+name: iServi CI
 
 on:
   push:
@@ -83,7 +83,7 @@ jobs:
         run: install -m 600 .env.example .env
 
       - name: Validar Compose de testes
-        run: docker compose --env-file .env -p mesaflow-test -f docker-compose.test.yml config --quiet
+        run: docker compose --env-file .env -p iservi-test -f docker-compose.test.yml config --quiet
 
       - name: Inicializar banco de testes
         run: npm run db:test:up
@@ -94,7 +94,7 @@ jobs:
 
       - name: Exibir logs do banco em caso de falha
         if: failure()
-        run: docker compose --env-file .env -p mesaflow-test -f docker-compose.test.yml logs
+        run: docker compose --env-file .env -p iservi-test -f docker-compose.test.yml logs
 
       - name: Encerrar ambiente de testes
         if: always()

@@ -5,6 +5,7 @@ import type {
   CreateUserData,
   UpdateUserData,
   UserEntity,
+  UserRole,
 } from "../entity/user.entity.js";
 import type { UserRepository } from "./user.repository.js";
 
@@ -33,10 +34,27 @@ export class PrismaUserRepository implements UserRepository {
     return this.prisma.user.findMany();
   }
 
-  async update(id: bigint, data: UpdateUserData): Promise<UserEntity> {
+  async update(
+    id: bigint,
+    data: UpdateUserData,
+    expectedRole?: UserRole,
+  ): Promise<UserEntity> {
     try {
-      return await this.prisma.user.update({ where: { id }, data });
+      return await this.prisma.user.update({
+        where: { id, ...(expectedRole && { role: expectedRole }) },
+        data,
+      });
     } catch (error) {
+      if (
+        expectedRole &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2025"
+      ) {
+        throw new AppError(
+          "O usuário foi alterado. Atualize a lista e tente novamente.",
+          409,
+        );
+      }
       this.handlePrismaError(error);
     }
   }

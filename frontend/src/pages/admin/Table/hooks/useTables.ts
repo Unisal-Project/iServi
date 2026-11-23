@@ -17,6 +17,7 @@ const message = (error: unknown) =>
 // A API usa null para campos ausentes; a tela trabalha com opcionais.
 const toTable = (record: TableRecord): RestaurantTable => ({
   ...record,
+  menuUrl: record.menuUrl ?? "",
   name: record.name ?? `Mesa ${String(record.number).padStart(2, "0")}`,
   openedAt: record.openedAt ?? undefined,
   closingRequestedAt: record.closingRequestedAt ?? undefined,

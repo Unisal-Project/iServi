@@ -12,7 +12,7 @@ const user = { id: "1", name: "Ana", email: "ana@example.com", role: "ADMIN" };
 before(async () => {
   globalThis.window = { location: { protocol: "http:", hostname: "localhost", origin: "http://localhost:5173" } };
   globalThis.localStorage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) };
-  values.set("mesaflow.session", JSON.stringify({ user, accessToken: token }));
+  values.set("iservi.session", JSON.stringify({ user, accessToken: token }));
   server = await createServer({ root: fileURLToPath(new URL("..", import.meta.url)), server: { middlewareMode: true, ws: false }, optimizeDeps: { noDiscovery: true }, plugins: [{ name: "avatar-controlled-profile", enforce: "pre", transform(code, id) { if (id.endsWith("/Settings/components/ProfileForm.tsx")) return code.replace('from "react"', 'from "/tests/helpers/hook-runtime.mjs"'); } }] });
   ({ ProfileForm } = await server.ssrLoadModule("/src/pages/admin/Settings/components/ProfileForm.tsx"));
   ({ AdminSidebar } = await server.ssrLoadModule("/src/components/layout/AdminSidebar.tsx"));

@@ -4,7 +4,7 @@ generator client {
   previewFeatures = ["views"]
 }
 
-// Mapeamento do banco definido em ../../mesaflow_schema_v1.sql.
+// Mapeamento do banco definido em ../../iservi_schema_v1.sql.
 // CHECK constraints continuam sendo aplicados pelo SQL do banco, pois não há
 // uma representação equivalente para eles na Prisma Schema Language.
 
@@ -20,6 +20,7 @@ enum PromoType {
 enum UserRole {
   ADMIN
   EMPLOYEE
+  PLATFORM_ADMIN
 }
 
 enum AttendanceStatus {
@@ -171,23 +172,24 @@ model RestaurantTable {
 }
 
 model Attendance {
-  id                 BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
-  tableId            BigInt           @map("table_id") @db.UnsignedBigInt
-  status             AttendanceStatus @default(OPEN)
-  openedAt           DateTime         @default(now()) @map("opened_at") @db.DateTime(0)
-  closingRequestedAt DateTime?        @map("closing_requested_at") @db.DateTime(0)
-  closedAt           DateTime?        @map("closed_at") @db.DateTime(0)
-  closedById         BigInt?          @map("closed_by") @db.UnsignedBigInt
-  serviceFee         Decimal          @default(0.00) @map("service_fee") @db.Decimal(10, 2)
-  createdAt          DateTime         @default(now()) @map("created_at") @db.DateTime(0)
-  updatedAt          DateTime         @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
+  id                 BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  tableId            BigInt             @map("table_id") @db.UnsignedBigInt
+  status             AttendanceStatus   @default(OPEN)
+  openedAt           DateTime           @default(now()) @map("opened_at") @db.DateTime(0)
+  closingRequestedAt DateTime?          @map("closing_requested_at") @db.DateTime(0)
+  closedAt           DateTime?          @map("closed_at") @db.DateTime(0)
+  closedById         BigInt?            @map("closed_by") @db.UnsignedBigInt
+  serviceFee         Decimal            @default(0.00) @map("service_fee") @db.Decimal(10, 2)
+  createdAt          DateTime           @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
   // Coluna STORED calculada pelo MariaDB; a expressão permanece no SQL-fonte.
-  activeTableId      BigInt?          @unique(map: "uq_attendances_one_active_per_table") @default(dbgenerated()) @map("active_table_id") @db.UnsignedBigInt
-  table              RestaurantTable  @relation(fields: [tableId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_attendances_table")
-  closedBy           User?            @relation("AttendanceClosedBy", fields: [closedById], references: [id], onDelete: SetNull, onUpdate: Cascade, map: "fk_attendances_closed_by")
+  activeTableId      BigInt?            @unique(map: "uq_attendances_one_active_per_table") @default(dbgenerated()) @map("active_table_id") @db.UnsignedBigInt
+  table              RestaurantTable    @relation(fields: [tableId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_attendances_table")
+  closedBy           User?              @relation("AttendanceClosedBy", fields: [closedById], references: [id], onDelete: SetNull, onUpdate: Cascade, map: "fk_attendances_closed_by")
   orders             Order[]
   payments           Payment[]
   printJobs          PrintJob[]
+  pushSubscriptions  PushSubscription[]
 
   @@index([tableId], map: "idx_attendances_table_id")
   @@index([status], map: "idx_attendances_status")
@@ -219,11 +221,11 @@ model Order {
   stockMovements     StockMovement[]
   printJobs          PrintJob[]
 
+  @@unique([businessDate, dailyNumber], map: "uq_orders_business_date_daily_number")
   @@index([attendanceId], map: "idx_orders_attendance_id")
   @@index([status], map: "idx_orders_status")
   @@index([createdAt], map: "idx_orders_created_at")
   @@index([cancelledAt], map: "idx_orders_cancelled_at")
-  @@unique([businessDate, dailyNumber], map: "uq_orders_business_date_daily_number")
   @@map("orders")
 }
 
@@ -332,21 +334,20 @@ view AttendancePayment {
   @@map("vw_attendance_payments")
 }
 
-
 enum WaiterCallStatus {
   PENDING
   ATTENDED
 }
 
 model WaiterCall {
-  id BigInt @id @default(autoincrement()) @db.UnsignedBigInt
-  tableId BigInt @map("table_id") @db.UnsignedBigInt
-  status WaiterCallStatus @default(PENDING)
-  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(0)
-  attendedAt DateTime? @map("attended_at") @db.DateTime(0)
+  id             BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  tableId        BigInt           @map("table_id") @db.UnsignedBigInt
+  status         WaiterCallStatus @default(PENDING)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.DateTime(0)
+  attendedAt     DateTime?        @map("attended_at") @db.DateTime(0)
   // Calculada no SQL: apenas chamadas pendentes ocupam a chave única.
-  pendingTableId BigInt? @unique(map: "uq_waiter_calls_pending_table") @default(dbgenerated()) @map("pending_table_id") @db.UnsignedBigInt
-  table RestaurantTable @relation(fields: [tableId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_waiter_calls_table")
+  pendingTableId BigInt?          @unique(map: "uq_waiter_calls_pending_table") @default(dbgenerated()) @map("pending_table_id") @db.UnsignedBigInt
+  table          RestaurantTable  @relation(fields: [tableId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_waiter_calls_table")
 
   @@index([status, createdAt], map: "idx_waiter_calls_status_created")
   @@map("waiter_calls")
@@ -364,5 +365,27 @@ model RestaurantSettings {
   dayCutoffHour  Int      @default(5) @map("day_cutoff_hour") @db.UnsignedTinyInt
   timezone       String   @default("America/Sao_Paulo") @db.VarChar(64)
   updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
+
   @@map("restaurant_settings")
+}
+
+model PushSubscription {
+  id           BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  attendanceId BigInt   @map("attendance_id") @db.UnsignedBigInt
+  sessionId    String   @map("session_id") @db.VarChar(36)
+  endpoint     String   @db.Text
+  endpointHash String   @map("endpoint_hash") @db.Char(64)
+  p256dh       String   @db.VarChar(255)
+  auth         String   @db.VarChar(255)
+  active       Boolean  @default(true)
+  expiresAt    DateTime @map("expires_at") @db.DateTime(0)
+  createdAt    DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
+
+  attendance Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "fk_push_subscriptions_attendance")
+
+  @@unique([attendanceId, endpointHash], map: "uq_push_subscriptions_attendance_endpoint")
+  @@index([attendanceId, active], map: "idx_push_subscriptions_attendance_active")
+  @@index([expiresAt], map: "idx_push_subscriptions_expires_at")
+  @@map("push_subscriptions")
 }

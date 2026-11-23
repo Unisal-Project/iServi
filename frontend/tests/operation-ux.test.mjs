@@ -242,7 +242,7 @@ const table = {
   seats: 4,
   active: true,
   status: "available",
-  menuUrl: "http://localhost/cardapio?mesa=tok",
+  menuUrl: "http://localhost/cliente?mesa=tok",
 };
 
 test("dashboard: erro de ação não esconde indicadores; erro sem dados mostra — e Tentar de novo", () => {

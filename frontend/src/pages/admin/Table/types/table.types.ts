@@ -15,6 +15,7 @@ export type RestaurantTable = Omit<
   "name" | "openedAt" | "closingRequestedAt"
 > & {
   name: string;
+  menuUrl: string;
   openedAt?: string;
   closingRequestedAt?: string;
   orderValue?: string;

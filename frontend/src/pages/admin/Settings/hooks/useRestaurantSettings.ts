@@ -54,6 +54,14 @@ export function useRestaurantSettings(editable: boolean) {
   };
   const dirty =
     saved !== null && (bannerFile !== null || JSON.stringify(form) !== JSON.stringify(saved));
+  const removeBanner = () => {
+    if (!editable || busy) return;
+    setForm((current) => ({ ...current, bannerImageUrl: "" }));
+    setBannerFile(null);
+    setBannerPreview("");
+    setError("");
+    setNotice("");
+  };
   const reload = useCallback(async () => {
     setError("");
     try {
@@ -113,6 +121,7 @@ export function useRestaurantSettings(editable: boolean) {
     }
     setBusy(true);
     const text = (value: string) => value.trim() || null;
+    const removeSavedBanner = !bannerFile && !form.bannerImageUrl && !!saved.bannerImageUrl;
     try {
       const data = toForm(
         await saveSettings({
@@ -122,6 +131,7 @@ export function useRestaurantSettings(editable: boolean) {
           contact: text(form.contact),
           serviceFeeRate: rate,
           dayCutoffHour: Number(form.dayCutoffHour),
+          ...(removeSavedBanner && { removeBanner: true }),
         }),
       );
       setDayCutoff(Number(data.dayCutoffHour));
@@ -160,5 +170,6 @@ export function useRestaurantSettings(editable: boolean) {
     discard,
     bannerPreview,
     selectBanner,
+    removeBanner,
   };
 }

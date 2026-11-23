@@ -113,7 +113,7 @@ test('B02: excluir selecionados só alcança o que está na tela (filtro/busca/p
  globalThis.menuPromotionState = promotionState();
  const token = 'h.' + btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })) + '.s';
  const before = globalThis.localStorage;
- globalThis.localStorage = { getItem: key => key === 'mesaflow.session' ? JSON.stringify({ accessToken: token, user: { id: '1', role: 'ADMIN' } }) : null };
+ globalThis.localStorage = { getItem: key => key === 'iservi.session' ? JSON.stringify({ accessToken: token, user: { id: '1', role: 'ADMIN' } }) : null };
  try {
   const current = props();
   const item = id => ({ id, name: `P${id}`, categoryId: 'c', price: '1', quantity: 1 });

@@ -26,6 +26,7 @@ export class PrismaSettingsRepository implements SettingsRepository {
       openingHours: data.openingHours,
       contact: data.contact,
       dayCutoffHour: data.dayCutoffHour,
+      ...(data.removeBanner && { bannerImageUrl: null }),
     };
     return this.toResponse(
       await this.prismaClient.restaurantSettings.upsert({
@@ -51,7 +52,7 @@ export class PrismaSettingsRepository implements SettingsRepository {
     };
   }
 
-  async saveBannerImage(url: string): Promise<RestaurantSettings> {
+  async saveBannerImage(url: string | null): Promise<RestaurantSettings> {
     return this.toResponse(
       await this.prismaClient.restaurantSettings.update({
         where: { id: 1 },

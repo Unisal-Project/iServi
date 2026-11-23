@@ -174,7 +174,11 @@ test("card da prévia abre o detalhe", async () => {
 test("detalhe da prévia mostra o mesmo formulário do cliente com carrinho isolado", () => {
   const backs = [];
   const props = {
-    product,
+    product: {
+      ...product,
+      imageUrl: "/uploads/products/cover.webp",
+      imageUrls: ["/uploads/products/cover.webp", "/uploads/products/side.webp", "/uploads/products/inside.webp"],
+    },
     categoryName: "Lanches",
     onBack: () => backs.push("back"),
     onNavigate: (to) => backs.push(to),
@@ -184,6 +188,9 @@ test("detalhe da prévia mostra o mesmo formulário do cliente com carrinho isol
   );
   assert.ok(html.includes("Adicionar ao pedido"));
   assert.ok(html.includes("Observações"));
+  assert.ok(html.includes('aria-label="Ver foto 1 de 3" aria-pressed="true"'));
+  assert.ok(html.includes('aria-label="Ver foto 2 de 3" aria-pressed="false"'));
+  assert.ok(html.includes('aria-label="Ver foto 3 de 3" aria-pressed="false"'));
 
   // O carrinho é o do PreviewLayout: o detalhe não cria outro.
   const detail = mod.ProductPreviewView(props).props;
@@ -194,17 +201,17 @@ test("detalhe da prévia mostra o mesmo formulário do cliente com carrinho isol
 
   // "Adicionar ao pedido" = addItem no carrinho da prévia + onAdded.
   const run = createHookRunner(() =>
-    CartProvider({ children: null, storageKey: "mesaflow:cart:admin-preview" }),
+    CartProvider({ children: null, storageKey: "iservi:cart:admin-preview" }),
   );
   run().props.value.addItem(product, 1, [""]);
   run();
   detail.onAdded();
   assert.deepEqual(backs, ["back"]);
   assert.equal(
-    JSON.parse(storage.get("mesaflow:cart:admin-preview")).length,
+    JSON.parse(storage.get("iservi:cart:admin-preview")).length,
     1,
   );
-  assert.equal(storage.has("mesaflow:cart"), false);
+  assert.equal(storage.has("iservi:cart"), false);
   assert.ok(!fetched.some((url) => /\/orders|\/tables\/by-token/.test(url)));
 });
 
@@ -253,11 +260,11 @@ test("entrar na prévia limpa só o carrinho isolado", async () => {
     "/src/pages/admin/MenuPreview/preview.ts",
   );
   storage.set(PREVIEW_CART_KEY, "[1]");
-  storage.set("mesaflow:cart", "[2]");
+  storage.set("iservi:cart", "[2]");
   resetPreviewCart();
   assert.equal(storage.has(PREVIEW_CART_KEY), false);
-  assert.equal(storage.get("mesaflow:cart"), "[2]");
-  storage.delete("mesaflow:cart");
+  assert.equal(storage.get("iservi:cart"), "[2]");
+  storage.delete("iservi:cart");
 });
 
 test("link da prévia no formulário: desativado com alterações pendentes", async () => {
@@ -329,7 +336,7 @@ test("carrinho e conta da prévia exigem login e usam as telas do cliente", () =
 });
 
 test("carrinho da prévia zera ao entrar no grupo e as telas internas não o apagam", async () => {
-  const key = "mesaflow:cart:admin-preview";
+  const key = "iservi:cart:admin-preview";
   const line = JSON.stringify([{ id: "l1", product, quantity: 2, notes: "" }]);
   // Telas internas (cardápio) não zeram: o carrinho segue entre cardápio ↔ carrinho.
   storage.set(key, line);

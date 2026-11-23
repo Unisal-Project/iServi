@@ -6,7 +6,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 let server, run, service, useRestaurantSettings, PaymentForm, PaymentModal, RestaurantInfo, paymentModule;
 const old = { fetch: globalThis.fetch, window: globalThis.window, localStorage: globalThis.localStorage };
-const data = { name: "Mesa Flow", address: null, openingHours: "18h–23h", contact: "123", serviceFeeRate: 5 };
+const data = { name: "iServi", address: null, openingHours: "18h–23h", contact: "123", serviceFeeRate: 5 };
 const requests = [];
 before(async () => {
   globalThis.window = { location: { protocol: "http:", hostname: "localhost" }, confirm: () => true };
@@ -84,7 +84,11 @@ test("imagem do restaurante fica em rascunho até salvar e é enviada como arqui
   globalThis.fetch = async (url, options = {}) => {
     calls.push({ url: String(url), ...options });
     if (options.method === "POST") return Response.json({ ...data, bannerImageUrl: imageUrl });
-    return Response.json(options.method === "PUT" ? JSON.parse(options.body) : data);
+    if (options.method === "PUT") {
+      const { removeBanner, ...settings } = JSON.parse(options.body);
+      return Response.json({ ...settings, bannerImageUrl: removeBanner ? null : imageUrl });
+    }
+    return Response.json(data);
   };
   const hook = run(() => useRestaurantSettings(true));
   try {
@@ -103,10 +107,25 @@ test("imagem do restaurante fica em rascunho até salvar e é enviada como arqui
     hook().selectBanner(new File(["bad"], "script.svg", { type: "image/svg+xml" }));
     assert.match(hook().error, /JPG.*5 MB/);
     assert.equal(hook().dirty, false);
+    const beforeRemoval = calls.length;
+    hook().removeBanner();
+    assert.equal(hook().form.bannerImageUrl, "");
+    assert.equal(hook().dirty, true);
+    assert.equal(calls.length, beforeRemoval);
+    hook().discard();
+    assert.equal(hook().form.bannerImageUrl, imageUrl);
+    hook().removeBanner();
+    await hook().submit({ preventDefault() {} });
+    assert.equal(calls.length, beforeRemoval + 1);
+    assert.match(calls.at(-1).url, /\/settings$/);
+    assert.equal(calls.at(-1).method, "PUT");
+    assert.equal(JSON.parse(calls.at(-1).body).removeBanner, true);
+    assert.equal(hook().form.bannerImageUrl, "");
+    assert.equal(hook().dirty, false);
   } finally { globalThis.fetch = originalFetch; }
 });
 
-test("nome e imagem salvos aparecem na tela de boas-vindas; nome vazio usa MesaFlow", async () => {
+test("nome e imagem salvos aparecem na tela de boas-vindas; nome vazio usa iServi", async () => {
   const { Home } = await server.ssrLoadModule("/src/pages/client/Home/index.tsx");
   const { RestaurantSettingsContext } = await server.ssrLoadModule("/src/contexts/restaurant-settings.ts");
   const originalWindow = globalThis.window;
@@ -118,8 +137,8 @@ test("nome e imagem salvos aparecem na tela de boas-vindas; nome vazio usa MesaF
     assert.match(html, /<strong>Bistrô da Praça<\/strong>/);
     assert.match(html, /<span>Bistrô da Praça<\/span>/);
     assert.match(html, /src="http:\/\/localhost:3333\/uploads\/products\/banner.webp"/);
-    assert.doesNotMatch(html, />MesaFlow</);
-    assert.match(render({ ...data, name: null }), /<strong>MesaFlow<\/strong>/);
+    assert.doesNotMatch(html, />iServi</);
+    assert.match(render({ ...data, name: null }), /<strong>iServi<\/strong>/);
   } finally { globalThis.window = originalWindow; }
 });
 
@@ -144,7 +163,7 @@ test("informações do restaurante carregam ao abrir, respeitam prop e falha man
   await find(render(), n => n.props?.["aria-label"] === "Informações do restaurante").props.onClick();
   assert.equal(opened, 1);
   assert.match(requests[0].url, /\/settings\/public$/);
-  assert.ok(renderToStaticMarkup(render()).includes("Mesa Flow"));
+  assert.ok(renderToStaticMarkup(render()).includes("iServi"));
   const prop = run(() => RestaurantInfo({ details: { name: "Via prop" } }));
   find(prop(), n => n.type === "dialog").props.ref.current = { showModal() {} };
   const before = requests.length;

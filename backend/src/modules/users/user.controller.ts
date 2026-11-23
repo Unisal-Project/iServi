@@ -24,12 +24,16 @@ export class UserController {
     const data = updateUserSchema.parse(request.body);
     return reply
       .status(200)
-      .send(this.toResponse(await this.userService.updateUser(id, data)));
+      .send(
+        this.toResponse(
+          await this.userService.updateUser(id, data, request.user.role),
+        ),
+      );
   }
 
   async delete(request: FastifyRequest, reply: FastifyReply) {
     const { id } = userIdSchema.parse(request.params);
-    await this.userService.deleteUser(id);
+    await this.userService.deleteUser(id, request.user.role);
     return reply.status(204).send();
   }
 

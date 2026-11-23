@@ -20,7 +20,7 @@ export function fetchPaymentConfirmation(session: string, signal: AbortSignal) {
   });
 }
 
-const storageKey = (tableToken: string) => `mesaflow:payment-session:${tableToken}`;
+const storageKey = (tableToken: string) => `iservi:payment-session:${tableToken}`;
 
 export function readPaymentSession(tableToken: string) {
   try {

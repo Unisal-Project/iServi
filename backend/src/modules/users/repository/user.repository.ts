@@ -1,5 +1,6 @@
 import type {
   UserEntity,
+  UserRole,
   CreateUserData,
   UpdateUserData,
 } from "../entity/user.entity.js";
@@ -13,5 +14,9 @@ export interface UserRepository {
 
   findAll(): Promise<UserEntity[]>;
 
-  update(id: bigint, data: UpdateUserData): Promise<UserEntity>;
+  update(
+    id: bigint,
+    data: UpdateUserData,
+    expectedRole?: UserRole,
+  ): Promise<UserEntity>;
 }

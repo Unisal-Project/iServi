@@ -20,6 +20,7 @@ import { registerAuthRoutes } from "./modules/auth/auth.router.js";
 import { registerUserRoutes } from "./modules/users/user.router.js";
 import { registerSettingsRoutes } from "./modules/settings/settings.routes.js";
 import { requireApiAuthentication } from "./shared/api-access.js";
+import { notificationsRoutes } from "./modules/notifications/notifications.routes.js";
 
 export async function buildApp(logger = true) {
   const app = fastify({ logger, trustProxy: true });
@@ -73,6 +74,7 @@ export async function buildApp(logger = true) {
       await instance.register(tableRoutes);
       await instance.register(paymentRoutes);
       await instance.register(paymentConfirmationRoutes);
+      await instance.register(notificationsRoutes);
       await instance.register(reportRoutes);
       await instance.register(registerSettingsRoutes);
     },

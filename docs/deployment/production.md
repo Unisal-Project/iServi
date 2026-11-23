@@ -1,0 +1,122 @@
+# Publicação do iServi
+
+O Compose de produção usa Nginx como única entrada HTTP. Ele entrega o React compilado em `/`, encaminha `/api/v1/` e `/uploads/` para o Fastify pelo nome interno `backend:3333`, e mantém MariaDB sem porta publicada.
+
+## Preparação
+
+Na raiz, crie o `.env` a partir de `.env.example` se ele ainda não existir e restrinja o acesso com `chmod 600 .env`. Preencha `PRODUCTION_MARIADB_ROOT_PASSWORD`, `PRODUCTION_MARIADB_PASSWORD`, `PRODUCTION_DATABASE_URL`, `PRODUCTION_JWT_SECRET` e `PRODUCTION_FRONTEND_URL`. Em um volume existente, preserve as senhas do MariaDB. Na URL do banco, use o mesmo valor de `PRODUCTION_MARIADB_PASSWORD`, codificando caracteres reservados. Gere um segredo JWT de pelo menos 32 bytes aleatórios com `openssl rand -base64 48` e use a origem pública exata, por exemplo `https://iservi.exemplo.com`.
+
+```bash
+docker compose --env-file .env -f docker-compose.production.yml up --build -d
+docker compose --env-file .env -f docker-compose.production.yml ps
+```
+
+Para teste local, use `PRODUCTION_FRONTEND_URL=http://localhost` e acesse `http://localhost`. O endpoint `http://localhost/api/v1/health` verifica o encaminhamento até o backend.
+
+## Valkey (limite de tentativas de login)
+
+O Compose injeta `PRODUCTION_VALKEY_URL` como `VALKEY_URL`, com padrão `redis://valkey:6379`. O serviço fica na rede interna e não publica porta. Consulte os [limites de autenticação](../backend/authentication.md#limites-de-autenticação) para chaves, janelas e fallback.
+
+## Como o proxy funciona
+
+O navegador chama a mesma origem para página e API. Nginx escolhe a regra pela parte inicial do caminho. Em `/api/v1/`, `proxy_pass http://backend:3333` preserva a URL original e a encaminha pelo DNS interno do Docker. Em `/`, `try_files` busca o arquivo estático; quando a URL é uma rota do React, devolve `index.html`. O backend permite CORS apenas para a origem definida em `FRONTEND_URL`. Como o navegador usa a mesma origem neste deploy, as chamadas normais não dependem de CORS.
+
+O Compose de desenvolvimento continua disponível com `docker compose up`. Nele não há proxy: o Vite (`:5173`) não encaminha `/api/v1`, e o navegador chama a API direto em `http://<host>:3333/api/v1` (padrão de `frontend/src/api/client.ts` quando `VITE_API_URL` está vazio), por isso o CORS com `FRONTEND_URL` é necessário em desenvolvimento.
+
+## Antes de abrir na internet
+
+A configuração atual escuta HTTP na porta 80. Configure domínio, certificado TLS e redirecionamento HTTPS antes de publicar. As rotas de `/api/v1` exigem JWT por padrão pelo hook registrado em [app.ts](../../backend/src/app.ts). Consulte a [política da API](../backend/authentication.md) para as exceções. Nginx impede acesso direto à porta `3333`, mas qualquer pessoa pode chamar os caminhos de API publicados pelo proxy. Faça backup regular do volume MariaDB e do volume de uploads.
+
+## Atualização de banco existente
+
+Em instalação nova, o [schema inicial](../../iservi_schema_v1.sql) cria o modelo operacional. Para Web Push, aplique também o incremental indicado na seção própria. Em volume existente, o Compose de produção não reaplica automaticamente o schema. Revise os [incrementais](../../backend/prisma/sql), faça backup e aplique os necessários antes de iniciar a versão nova. O script abaixo interrompe a publicação ao primeiro erro e pressupõe que o banco já está disponível.
+
+```bash
+DC="docker compose --env-file .env -f docker-compose.production.yml"
+SQL='exec mariadb -u"$MARIADB_USER" -p"$MARIADB_PASSWORD" "$MARIADB_DATABASE"'
+
+# 1. Backup do banco (copie também o volume de uploads)
+$DC exec -T database sh -c 'exec mariadb-dump -u"$MARIADB_USER" -p"$MARIADB_PASSWORD" --single-transaction "$MARIADB_DATABASE"' > backup-$(date +%F-%H%M).sql
+
+# 2. Parar o backend: a versão anterior não preenche o número do pedido do dia (order-daily-number)
+$DC stop backend
+
+# 3. Incrementais do modelo operacional
+for f in product-categories tables-attendance-status qr-ordering-payment waiter-calls admin-panel-columns product-track-stock promotions product-images product-featured restaurant-settings remove-order-tracking user-token-version product-category-nullable order-daily-number user-avatar user-platform-role; do
+  $DC exec -T database sh -c "$SQL" < backend/prisma/sql/$f.sql || exit 1
+done
+
+# 4. Publicar (sobe o backend novo) e verificar
+$DC up --build -d
+curl -fsS http://localhost/api/v1/health   # {"status":"ok"}
+```
+
+`admin-panel-columns.sql` só adiciona colunas (`seats`, `service_fee` e detalhes de pagamento), `product-track-stock.sql` só adiciona `products.track_stock` (padrão `TRUE`, produtos existentes continuam com estoque controlado), `promotions.sql` só adiciona as colunas `promo_*` em `products` e `categories` (promoção desligada por padrão) e `product-images.sql` só adiciona `image_url_2`/`image_url_3` em `products` (fotos extras; `image_url` segue como capa); `product-featured.sql` adiciona `products.featured` com padrão `FALSE` (destaque escolhido pelo admin). Aplique esse incremental antes de publicar o backend; a versão anterior ignora as novas colunas. `remove-order-tracking.sql` preserva pedidos e cancelamentos e converte os antigos estados de preparo (`PREPARING`, `READY`, `DELIVERED`) para `PENDING`; essa conversão só é desfeita restaurando o backup.
+
+Rollback: a partir de `order-daily-number.sql`, a versão anterior do backend **não funciona** com o banco atualizado (ela não preenche `orders.business_date`/`daily_number`, obrigatórios, e falha ao criar pedidos). Para voltar de versão, restaure o backup (abaixo). Em bancos anteriores a esse incremental, para devolver o enum de pedidos ao formato antigo (sem recuperar os estados convertidos):
+
+```sql
+ALTER TABLE orders
+    MODIFY COLUMN status ENUM('PENDING', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED') NOT NULL DEFAULT 'PENDING';
+```
+
+Para voltar exatamente ao estado anterior, restaure o dump: `$DC exec -T database sh -c "$SQL" < backup-<data>.sql`.
+
+Após atualizar, a consulta de consumo usa o [contrato atual de mesas](../business/mesas-e-atendimentos.md). A antiga consulta pública de acompanhamento por pedido foi desativada junto com os estados de preparo.
+
+## Fotos e miniaturas após o deploy
+
+O Nginx aceita corpos de até 6 MB (`client_max_body_size 6m`), cobrindo os 5 MB do arquivo multipart no backend. O upload aceita JPG, PNG, WebP e AVIF; HEIC/HEVC não é suportado. A validação de AVIF exige formato HEIF com compressão AV1 no sharp. O servidor grava WebP de até 1200×1200 (quality 82) e uma miniatura de até 400×400 (quality 75), preservando proporção e sem ampliar fotos pequenas.
+
+Depois de publicar esta versão, execute o script **dentro do container do backend**, onde o volume `product_uploads` está montado em `/app/backend/uploads`. Rodar no host não encontra as fotos e imprime `Miniaturas geradas: 0`:
+
+```bash
+$DC exec backend sh -c "cd /app && npm run images:thumbs"
+```
+
+O script usa Node 22 com suporte a `--experimental-strip-types`, sem depender do tsx (que é dependência de desenvolvimento e não existe na imagem de produção). O `Dockerfile.production` copia `backend/scripts` e mantém o `sharp` em produção. Ele percorre `/app/backend/uploads/products` no container, cria somente os `*-thumb.webp` ausentes e pode ser repetido: não regrava miniaturas existentes nem processa miniaturas como originais. Faça o backup habitual do volume antes da atualização. A saída informa quantas miniaturas foram geradas; aguarde o término antes de validar as imagens antigas no admin.
+
+A API deriva `thumbUrls` na mesma ordem de `imageUrls`, sem mudança no banco. Exclusão e substituição de uma foto removem as duas variantes. O admin usa miniaturas com fallback para a imagem original se a miniatura ainda não existir. O cardápio do cliente usa as imagens originais.
+
+
+`restaurant-settings.sql` cria a tabela de configuração única e insere id=1 com taxa padrão de 10% somente se a linha ainda não existir. Reexecutar não sobrescreve dados do restaurante nem a taxa já configurada. O SQL também adiciona `banner_image_url`; reaplique-o antes de publicar a versão com a imagem de boas-vindas do cardápio. Aplique este SQL antes de publicar a versão que lê a taxa do banco; sem a linha, o fechamento retorna configuração indisponível, sem presumir uma taxa. Os atendimentos anteriores preservam `service_fee` já gravado. Não há rollback destrutivo: a versão anterior ignora esta tabela.
+
+
+`user-token-version.sql` só adiciona `users.token_version` (padrão 0): tokens emitidos antes, sem a versão, continuam valendo até expirar ou até o primeiro logout/troca de senha do usuário; a versão anterior do backend ignora a coluna.
+
+`order-daily-number.sql` cria o número curto do pedido por dia de operação (`orders.business_date`/`daily_number`, único por dia), a tabela `order_daily_counters` e as colunas `restaurant_settings.day_cutoff_hour` (padrão 5 = 05:00) e `timezone` (padrão `America/Sao_Paulo`). Numera os pedidos existentes por dia de operação, em ordem de `created_at`, e só depois torna as colunas obrigatórias. **Pare o backend antes** (`$DC stop backend`): a versão anterior não preenche o número e os pedidos criados por ela nesse intervalo falhariam. Pode ser reexecutado: só numera pedidos ainda sem número e nunca diminui um contador. Não há rollback destrutivo; para voltar, restaure o backup.
+
+`product-category-nullable.sql` deve ser executado antes de publicar a versão que exclui categorias com produtos inativos. Apenas permite NULL em `products.category_id`, mantendo a FK RESTRICT. Pode ser reexecutado; não remove produtos nem pedidos. O backend continua exigindo categoria para criar, editar ou reativar produtos. Depois que houver históricos sem categoria, não reverta a coluna para NOT NULL sem primeiro atribuir uma categoria a esses inativos.
+
+
+## Perfil de suporte
+
+Em bancos existentes, aplique `user-platform-role.sql` antes de publicar o backend com RBAC, mesmo que Web Push esteja desabilitado. A migração amplia o enum `users.role` e preserva as contas e seus papéis. Consulte o [procedimento de provisionamento](../backend/authentication.md#provisionamento-seguro) para criar uma conta Nupify.
+
+## Web Push
+
+Em produção, o Compose repassa `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e `VAPID_SUBJECT`. Antes de habilitá-las, aplique [push-subscriptions.sql](../../backend/prisma/sql/push-subscriptions.sql), inclusive em instalação nova. Com o banco disponível, use a mesma variável `DC` definida na atualização:
+
+```bash
+$DC exec -T database sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb -uroot "$MARIADB_DATABASE"' < backend/prisma/sql/push-subscriptions.sql
+```
+
+O incremental é reaplicável. Use uma origem HTTPS e um par VAPID persistente. Confira o [roteiro de validação de Web Push](staging.md#web-push).
+
+## Build da API na mesma origem
+
+O estágio frontend de `nginx/Dockerfile` define `ARG VITE_API_URL=/api/v1` e exporta a variável antes do build. Vite incorpora essa configuração no bundle; mudar só o ambiente do container Nginx depois do build não a altera. `frontend/src/api/client.ts` concatena `/api/v1` com os endpoints; `assetUrl` resolve `/uploads/...` contra `window.location.origin`, sem porta externa 3333. URLs absolutas de imagens são preservadas.
+
+## Ativar HTTPS
+
+Esta configuração está **preparada, mas desligada**: o arquivo ativo continua `nginx/default.conf` HTTP. Não publique sem escolher domínio e obter certificado válido.
+
+1. Aponte os registros DNS A/AAAA do domínio para o servidor (remova AAAA se não houver IPv6 funcional). Libere TCP 80 e 443. Ajuste `PRODUCTION_FRONTEND_URL` para `https://SEU_DOMINIO` e reconstrua/reinicie o backend para atualizar CORS.
+2. Instale Certbot pelo gerenciador oficial do sistema. Crie `/var/www/certbot` no host e exponha esse diretório no Nginx como somente leitura. No servidor HTTP ativo, adicione `location /.well-known/acme-challenge/ { root /var/www/certbot; }` e monte o mesmo caminho no container. Verifique pelo domínio um arquivo de teste nesse diretório antes de solicitar o certificado.
+3. No host, emita com Let's Encrypt: `sudo certbot certonly --webroot -w /var/www/certbot -d SEU_DOMINIO`. Não ative o bloco 443 antes de existirem `fullchain.pem` e `privkey.pem`.
+4. Copie `nginx/default.ssl.conf.example` para uma configuração própria. Substitua **todas** as ocorrências de `iservi.example.com` pelo domínio real. Monte `/etc/letsencrypt` inteiro como somente leitura (os certificados em live são links para archive), monte `/var/www/certbot` e publique a porta 443 no serviço nginx do Compose. Substitua o arquivo ativo pela configuração preparada só nesta etapa. Mantenha os proxies `/api/v1/` e `/uploads/` e o fallback SPA do exemplo.
+5. Valide antes de recarregar: `nginx -t` no ambiente que tem os certificados e o DNS interno backend disponíveis. Depois recarregue Nginx. Verifique HTTP→HTTPS, certificado/cadeia, `/api/v1/health`, login e imagens `/uploads/`. O redirect usa domínio fixo, sem confiar no Host recebido.
+6. O exemplo envia HSTS (um ano, sem includeSubDomains/preload), CSP mesma origem, nosniff, Referrer-Policy e X-Frame-Options. Só habilite HSTS quando HTTPS estiver funcional; navegadores podem mantê-lo mesmo depois de rollback. A CSP permite estilos inline usados pelo app e imagens locais/data/blob. Se o restaurante usar imagens de CDN externa, autorize explicitamente o domínio em img-src após teste; não abra todos os domínios.
+7. Ative o timer de renovação do Certbot no host. Teste `sudo certbot renew --dry-run`; configure um deploy-hook que valide e recarregue o Nginx do serviço após a renovação. O caminho ACME na porta 80 precisa continuar acessível. Monitore a expiração; faça backup protegido das chaves e limite acesso aos certificados. Nunca copie chaves privadas para o repositório ou para a imagem.
+
+A emissão, a renovação e as mudanças de portas e montagens são executadas pelo operador da publicação.

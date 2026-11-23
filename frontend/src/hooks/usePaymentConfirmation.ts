@@ -66,5 +66,10 @@ export function usePaymentConfirmation(tableToken: string) {
     };
   }, [session, tableToken]);
 
-  return { hasSession: Boolean(session), status, registerPaymentSession };
+  return {
+    session,
+    hasSession: Boolean(session),
+    status,
+    registerPaymentSession,
+  };
 }

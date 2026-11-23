@@ -1,4 +1,4 @@
--- Migração incremental para bancos criados pelo mesaflow_schema_v1.sql.
+-- Migração incremental para bancos criados pelo iservi_schema_v1.sql.
 -- Pode ser reaplicada e preserva dados e o índice único de atendimento ativo.
 ALTER TABLE attendances
     MODIFY COLUMN status ENUM('OPEN', 'CLOSING_REQUESTED', 'CLOSED', 'CANCELLED', 'AWAITING_PAYMENT') NOT NULL DEFAULT 'OPEN',

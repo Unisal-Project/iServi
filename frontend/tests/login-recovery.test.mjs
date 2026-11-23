@@ -28,7 +28,7 @@ function nodes(tree) {
 }
 const button = (tree, text) => nodes(tree).find((node) => node.type === "button" && node.props.children === text);
 
-test("recuperação abre no padrão do cadastro e volta ao login sem enviar requisições", async () => {
+test("recuperação abre no formulário e volta ao login sem enviar requisições", async () => {
   let entered = false;
   globalThis.fetch = () => { throw Error("A recuperação visual não deve acessar a API"); };
   const render = createHookRunner(() => Login({ onEnter: () => { entered = true; } }));
@@ -43,28 +43,7 @@ test("recuperação abre no padrão do cadastro e volta ao login sem enviar requ
   assert.equal(entered, false);
   button(tree, "Voltar para entrar").props.onClick(); tree = render();
   assert.ok(nodes(tree).some((node) => node.props.label === "Senha"));
-  button(tree, "Criar conta").props.onClick(); tree = render();
-  assert.ok(nodes(tree).some((node) => node.props.label === "Seu nome"));
-  assert.ok(nodes(tree).some((node) => node.props.label === "Confirmar senha"));
-});
-
-test("cadastro mostra os requisitos e impede senha que não os atende", async () => {
-  let requests = 0;
-  globalThis.fetch = async () => { requests++; throw Error("não deve enviar senha fraca"); };
-  const render = createHookRunner(() => Login({ onEnter() {} }));
-  let tree = render();
-  button(tree, "Criar conta").props.onClick(); tree = render();
-  const password = () => nodes(render()).find(node => node.props?.id === "login-password");
-  const submit = () => nodes(render()).find(node => node.props?.type === "submit");
-  password().props.onChange({ target: { value: "senha123" } });
-  assert.equal(submit().props.disabled, true);
-  await nodes(render()).find(node => node.type === "form").props.onSubmit({ preventDefault() {} });
-  assert.equal(requests, 0);
-  assert.ok(nodes(render()).some(node => node.props?.role === "alert"));
-  password().props.onChange({ target: { value: "Minha@123" } });
-  assert.equal(submit().props.disabled, false);
-  assert.equal(password().props.autoComplete, "new-password");
-  assert.equal(password().props["aria-describedby"], "login-password-strength");
+  assert.equal(button(tree, "Criar conta"), undefined);
 });
 
 test("nova tela contém senha e confirmação, mostra força e ainda não envia alterações", async () => {

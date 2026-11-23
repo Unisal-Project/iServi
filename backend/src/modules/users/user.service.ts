@@ -3,6 +3,7 @@ import type { PasswordHasher } from "../../config/hash/password-hasher.js";
 import type { UpdateUserDTO } from "./dto/update-user.dto.js";
 import type {
   UserEntity,
+  UserRole,
   RegisterUserInput,
   PublicUser,
   CreateUserInput,
@@ -38,10 +39,14 @@ export class UserService {
     return users.map((user) => this.toPublicUser(user));
   }
 
-  async updateUser(id: bigint, data: UpdateUserDTO): Promise<PublicUser> {
+  async updateUser(
+    id: bigint,
+    data: UpdateUserDTO,
+    actorRole: UserRole,
+  ): Promise<PublicUser> {
     const { password, email, ...rest } = data;
     const current = await this.userRepository.findById(id);
-    if (!current) throw new AppError("Usuário não encontrado", 404);
+    this.assertCanManage(current, actorRole);
     // Nova senha, desativação ou mudança de perfil derrubam as sessões abertas.
     const revoke =
       password !== undefined ||
@@ -56,15 +61,31 @@ export class UserService {
         : { passwordHash: await this.passwordHasher.createHasher(password) }),
     };
 
-    const user = await this.userRepository.update(id, updateData);
+    const user = await this.userRepository.update(id, updateData, current.role);
     return this.toPublicUser(user);
   }
 
-  async deleteUser(id: bigint): Promise<void> {
-    await this.userRepository.update(id, {
-      active: false,
-      tokenVersion: { increment: 1 },
-    });
+  async deleteUser(id: bigint, actorRole: UserRole): Promise<void> {
+    const current = await this.userRepository.findById(id);
+    this.assertCanManage(current, actorRole);
+    await this.userRepository.update(
+      id,
+      {
+        active: false,
+        tokenVersion: { increment: 1 },
+      },
+      current.role,
+    );
+  }
+
+  private assertCanManage(
+    user: UserEntity | null,
+    actorRole: UserRole,
+  ): asserts user is UserEntity {
+    if (!user) throw new AppError("Usuário não encontrado", 404);
+    if (actorRole !== "PLATFORM_ADMIN" || user.role === "PLATFORM_ADMIN") {
+      throw new AppError("Acesso negado", 403);
+    }
   }
 
   private async create(data: CreateUserInput): Promise<PublicUser> {

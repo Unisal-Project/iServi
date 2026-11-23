@@ -36,8 +36,8 @@ test("API requires JWT except for auth, menu, health and QR token routes", async
       for (const [method, path] of [
         ["GET", "/tables"],
         ["POST", "/orders"],
-        ["GET", "/attendances/:id/open"],
-        ["POST", "/attendances/:id/confirm-payment"],
+        ["GET", "/attendances/:tableId/open"],
+        ["POST", "/attendances/:attendanceId/confirm-payment"],
         ["GET", "/users"],
         ["PATCH", "/auth/password"],
       ] as const)
@@ -90,7 +90,7 @@ test("API requires JWT except for auth, menu, health and QR token routes", async
           headers: { authorization: `Bearer ${token}` },
         })
       ).statusCode,
-      200,
+      path === "/users" ? 403 : 200,
       `${method} ${path}`,
     );
   }

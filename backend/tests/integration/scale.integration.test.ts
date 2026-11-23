@@ -211,3 +211,39 @@ test("B09/B14: relatório agrupa pelo dia de operação do fechamento e rankeia 
   assert.equal(after.tables, 0);
   assert.equal(after.revenue, 0);
 });
+
+test("support can inspect a paid order but cannot read financial data", async () => {
+  const support = await createAuthenticatedUser(app, "PLATFORM_ADMIN");
+  try {
+    const order = await createOrder();
+    await closeAccount(order.attendance.id);
+    const get = (path: string) =>
+      app.inject({ url: `${BASE_URL}${path}`, headers: support.headers });
+    const response = await get("/orders?days=2");
+    assert.equal(response.statusCode, 200, response.body);
+    const inspected = response
+      .json()
+      .find((entry: { id: string }) => entry.id === order.id);
+    assert.equal(inspected.attendance.status, "CLOSED");
+    assert.equal(inspected.items[0].quantity, 2);
+    assert.equal("unitPrice" in inspected.items[0], false);
+    assert.equal("serviceFee" in inspected.attendance, false);
+    assert.equal("payments" in inspected.attendance, false);
+    const table = await get(`/tables/${tableId}`);
+    assert.equal(table.statusCode, 200);
+    assert.equal("menuUrl" in table.json(), false);
+    for (const path of [
+      `/attendances/${order.attendance.id}/total`,
+      `/attendances/${order.attendance.id}/orders`,
+      `/tables/${tableId}/qrcode`,
+      "/reports/sales",
+    ]) {
+      assert.equal((await get(path)).statusCode, 403, path);
+    }
+    const operation = await get("/settings/operation");
+    assert.equal(operation.statusCode, 200);
+    assert.deepEqual(operation.json(), { dayCutoffHour: 5 });
+  } finally {
+    await db.user.delete({ where: { id: support.user.id } });
+  }
+});

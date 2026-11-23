@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { PushNotificationPrompt } from "@/components/domain/notifications/PushNotificationPrompt";
 
 import {
   Navigate,
@@ -252,8 +253,12 @@ function ClientAttendance({ tableToken }: { tableToken: string }) {
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
   const { clearCart } = useCart();
-  const { status, hasSession, registerPaymentSession } =
-    usePaymentConfirmation(tableToken);
+  const {
+    session,
+    status,
+    hasSession,
+    registerPaymentSession,
+  } = usePaymentConfirmation(tableToken);
 
   useEffect(() => {
     if (status?.status === "confirmed" && pathname !== confirmationPath) {
@@ -305,8 +310,18 @@ function ClientAttendance({ tableToken }: { tableToken: string }) {
       <Route
         path="*"
         element={
-          <ClientTableProvider token={tableToken} registerPaymentSession={registerPaymentSession}>
+          <ClientTableProvider
+            token={tableToken}
+            registerPaymentSession={registerPaymentSession}
+          >
             <ClientPages />
+
+            {session && status?.status === "pending" && (
+              <PushNotificationPrompt
+                key={session}
+                session={session}
+              />
+            )}
           </ClientTableProvider>
         }
       />
@@ -321,7 +336,7 @@ export function ClientRoutes() {
   return (
     <CartProvider
       key={tableToken}
-      storageKey={tableToken ? `mesaflow:cart:${tableToken}` : "mesaflow:cart"}
+      storageKey={tableToken ? `iservi:cart:${tableToken}` : "iservi:cart"}
     >
       <ClientAttendance tableToken={tableToken} />
     </CartProvider>

@@ -18,8 +18,23 @@ export class SettingsService {
       await this.repository.get();
     return { name, address, openingHours, contact, bannerImageUrl };
   }
-  save(data: SettingsDTO) {
-    return this.repository.save(data);
+  async save(data: SettingsDTO) {
+    if (!data.removeBanner) return this.repository.save(data);
+    const previous = await this.repository.get();
+    const updated = await this.repository.save(data);
+    if (previous.bannerImageUrl) {
+      await this.storage.delete(previous.bannerImageUrl).catch(() => undefined);
+    }
+    return updated;
+  }
+
+  async removeBanner() {
+    const previous = await this.repository.get();
+    const updated = await this.repository.saveBannerImage(null);
+    if (previous.bannerImageUrl) {
+      await this.storage.delete(previous.bannerImageUrl).catch(() => undefined);
+    }
+    return updated;
   }
 
   async uploadBanner(file: UploadFile) {

@@ -13,6 +13,6 @@ if (!password) {
 }
 
 // O host, a porta e o banco são fixos e correspondem ao Compose de testes.
-process.env.DATABASE_URL = `mysql://mesaflow_test:${encodeURIComponent(password)}@127.0.0.1:3308/mesaflow_test`;
+process.env.DATABASE_URL = `mysql://iservi_test:${encodeURIComponent(password)}@127.0.0.1:3308/iservi_test`;
 process.env.RUN_TABLES_DB_TESTS = "1";
 process.env.RUN_WAITER_DB_TESTS = "1";

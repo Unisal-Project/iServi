@@ -1,0 +1,13 @@
+{
+  "id": "/",
+  "name": "iServi",
+  "short_name": "iServi",
+  "description": "Cardápio digital e gerenciamento de pedidos.",
+  "lang": "pt-BR",
+  "start_url": "/cardapio",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FFFFFF"
+}

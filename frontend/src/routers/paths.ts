@@ -10,6 +10,7 @@ export const adminPaths: Record<string, string> = {
   menuPreviewProduct: "/admin/ver-cardapio/produto",
   menuPreviewCart: "/admin/ver-cardapio/carrinho",
   menuPreviewBill: "/admin/ver-cardapio/conta",
+  users: "/admin/usuarios",
   settings: "/admin/configuracoes",
 };
 

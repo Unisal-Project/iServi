@@ -22,7 +22,8 @@ type TableDetailsModalProps = {
   error: string;
   busy: boolean;
   onClose: () => void;
-  onEdit: (table: RestaurantTable) => void;
+  supportOnly?: boolean;
+  onEdit?: (table: RestaurantTable) => void;
   onAdvanceStatus: () => Promise<void>;
 };
 
@@ -37,6 +38,7 @@ export function TableDetailsModal({
   busy,
   onClose,
   onEdit,
+  supportOnly = false,
   onAdvanceStatus,
 }: TableDetailsModalProps) {
   const canLaunchOrder =
@@ -115,7 +117,7 @@ export function TableDetailsModal({
                 {busy
                   ? "Atualizando…"
                   : table.status === "awaiting_payment" && activeOrder
-                    ? "Ver pedido e receber pagamento"
+                    ? (supportOnly ? "Ver pedido" : "Ver pedido e receber pagamento")
                     : nextStatus[table.status].label}
               </Button>
 
@@ -133,13 +135,11 @@ export function TableDetailsModal({
                         <span>
                           {item.quantity} × {item.name}
                         </span>
-                        <strong>
-                          {formatPrice(item.quantity * item.unitPrice)}
-                        </strong>
+                        {!supportOnly && <strong>{formatPrice(item.quantity * item.unitPrice)}</strong>}
                       </li>
                     ))}
                   </ul>
-                  <p>
+                  {!supportOnly && <p>
                     <span>Total do pedido</span>
                     <strong>
                       {formatPrice(
@@ -150,19 +150,19 @@ export function TableDetailsModal({
                         ),
                       )}
                     </strong>
-                  </p>
+                  </p>}
                 </section>
               )}
               <p>O que você deseja consultar?</p>
 
-              <Button
+              {!supportOnly && <Button
                 type="button"
                 variant="secondary"
                 onClick={() => setSelectedDetail("qr")}
               >
                 <QrCode aria-hidden="true" />
                 Gerar QR Code
-              </Button>
+              </Button>}
 
               {activeOrder !== undefined ? (
                 <Button
@@ -182,7 +182,7 @@ export function TableDetailsModal({
           )}
 
           {/* Visualização do QR Code */}
-          {selectedDetail === "qr" && (
+          {!supportOnly && selectedDetail === "qr" && (
             <TableQr key={table.id} table={table} />
           )}
         </div>
@@ -202,10 +202,10 @@ export function TableDetailsModal({
             </Button>
           )}
 
-          <Button type="button" disabled={busy} onClick={() => onEdit(table)}>
+          {onEdit && <Button type="button" disabled={busy} onClick={() => onEdit(table)}>
             <Pencil aria-hidden="true" />
             Editar mesa
-          </Button>
+          </Button>}
         </footer>
       </section>
     </div>

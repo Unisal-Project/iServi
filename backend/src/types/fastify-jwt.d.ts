@@ -1,3 +1,4 @@
+import type { UserRole } from "../modules/users/entity/user.entity.js";
 import "@fastify/jwt";
 
 declare module "@fastify/jwt" {
@@ -13,7 +14,7 @@ declare module "@fastify/jwt" {
     user: {
       id: string;
       email: string;
-      role: "ADMIN" | "EMPLOYEE";
+      role: UserRole;
       /** users.token_version na emissão; ausente em tokens antigos (= 0). */
       tv?: number;
     };

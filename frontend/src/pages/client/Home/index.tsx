@@ -13,7 +13,7 @@ type HomeProps = {
 
 export function Home({ guestName, onGuestNameChange, onExploreMenu }: HomeProps) {
   const settings = usePublicRestaurantSettings();
-  const restaurantName = settings?.name?.trim() || "MesaFlow";
+  const restaurantName = settings?.name?.trim() || "iServi";
 
   return (
     <div className="client-home">

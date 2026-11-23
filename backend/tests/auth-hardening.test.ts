@@ -21,7 +21,7 @@ test("JWT_SECRET: em produção exige 32 bytes e recusa exemplos", () => {
   const strong = "x".repeat(32);
   assert.equal(checkJwtSecret(strong, "production"), strong);
   for (const weak of [
-    "mesaflow",
+    "iservi",
     "x".repeat(31),
     "development-only-change-me",
     "replace-with-a-long-random-secret",

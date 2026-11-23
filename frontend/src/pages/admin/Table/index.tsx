@@ -1,3 +1,5 @@
+import { getSession } from "@/services/auth.service";
+import { canManageRestaurant } from "@/routers/admin-access";
 import { useState } from "react";
 import { useContentTransition } from "@/hooks/useContentTransition";
 import { Armchair, Plus, Printer, Search } from "lucide-react";
@@ -56,6 +58,9 @@ export default function Tables({
     advanceStatus,
   } = state;
 
+  const role = getSession()?.user.role;
+  const canEdit = !role || canManageRestaurant(role);
+  const supportOnly = role === "PLATFORM_ADMIN";
   const [printing, setPrinting] = useState(false);
   // Sem menuUrl (token) não há QR válido: a mesa fica fora da folha.
   const printableTables = tables.filter(
@@ -92,18 +97,18 @@ export default function Tables({
               <p>Visualize a ocupação e acompanhe os atendimentos.</p>
             </div>
             <div className="tables-heading-actions">
-              <Button
+              {!supportOnly && <Button
                 variant="secondary"
                 disabled={printing || printableTables.length === 0}
                 onClick={() => setPrinting(true)}
               >
                 <Printer aria-hidden="true" />
                 {printing ? "Preparando…" : "Imprimir QR de todas as mesas"}
-              </Button>
-              <Button onClick={openNewTable}>
+              </Button>}
+              {canEdit && <Button onClick={openNewTable}>
                 <Plus aria-hidden="true" />
                 Adicionar mesa
-              </Button>
+              </Button>}
             </div>
           </header>
           {error && (
@@ -248,12 +253,13 @@ export default function Tables({
           error={error}
           busy={busy}
           onClose={() => setSelectedTable(null)}
-          onEdit={openEditTable}
+          onEdit={canEdit ? openEditTable : undefined}
+          supportOnly={supportOnly}
           onAdvanceStatus={advanceStatus}
         />
       )}
 
-      {isFormOpen && (
+      {canEdit && isFormOpen && (
         <TableFormModal
           editingTableId={editingTableId}
           tableForm={tableForm}

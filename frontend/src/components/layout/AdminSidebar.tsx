@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { classNames } from "@/utils/classNames";
+import { canAccessAdminSection, roleLabels } from "@/routers/admin-access";
 import { getSession, signOut } from "@/services/auth.service";
-import mesaFlowLogo from "@/assets/logotipo/logo_principal.png";
+import iServiLogo from "@/assets/logotipo/logo_alternativo-2.png";
 import { assetUrl } from "@/api/client";
 import {
   LayoutDashboard,
@@ -60,7 +61,7 @@ type AdminSidebarProps = {
   userRole?: string;
 };
 export function AdminSidebar({
-  brand = "MesaFlow",
+  brand = "iServi",
   brandSubtitle = "Administrativo",
   navigationLabel,
   showAvatar = false,
@@ -73,9 +74,9 @@ export function AdminSidebar({
   userRole,
 }: AdminSidebarProps) {
   const user = getSession()?.user;
-  const profileImage = avatarSrc ?? assetUrl(user?.avatarUrl) ?? mesaFlowLogo;
+  const profileImage = avatarSrc ?? assetUrl(user?.avatarUrl) ?? iServiLogo;
   userName ??= user?.name ?? "Usuário";
-  userRole ??= user?.role === "ADMIN" ? "Administrador" : "Funcionário";
+  userRole ??= user ? roleLabels[user.role] : "Funcionário";
   const [menuOpen, setMenuOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -168,7 +169,7 @@ export function AdminSidebar({
       </button>
       <div className="admin-brand">
         <div className="admin-brand-image">
-          {brandImage ?? <img src={mesaFlowLogo} alt="" />}
+          {brandImage ?? <img src={iServiLogo} alt="" />}
         </div>
         <div className="admin-brand-text">
           <strong>{brand}</strong>
@@ -178,7 +179,7 @@ export function AdminSidebar({
       {navigationLabel && (
         <p className="admin-navigation-label">{navigationLabel}</p>
       )}
-      {items.map((item) => (
+      {items.filter((item) => !user || canAccessAdminSection(user.role, item.id)).map((item) => (
         <button
           key={item.id}
           type="button"
@@ -199,7 +200,7 @@ export function AdminSidebar({
         }}
       >
         <div id={menuId} className="admin-profile-menu" hidden={!menuOpen}>
-          <button
+          {(!user || canAccessAdminSection(user.role, "settings")) && <button
             type="button"
             className="admin-profile-menu-item"
             onClick={() => {
@@ -209,7 +210,16 @@ export function AdminSidebar({
           >
             <Settings size={18} aria-hidden="true" />
             <span>Configurações</span>
-          </button>
+          </button>}
+          {user && canAccessAdminSection(user.role, "users") && (
+            <button type="button" className="admin-profile-menu-item" onClick={() => {
+              setMenuOpen(false);
+              navigate("users");
+            }}>
+              <UserRound size={18} aria-hidden="true" />
+              <span>Usuários</span>
+            </button>
+          )}
           <button
             type="button"
             className="admin-profile-menu-item"
@@ -231,7 +241,7 @@ export function AdminSidebar({
           {showAvatar && (
             <span className="admin-profile-avatar" aria-hidden="true">
               <img src={profileImage} alt="" onError={(event) => {
-                if (event.currentTarget.getAttribute("src") !== mesaFlowLogo) event.currentTarget.src = mesaFlowLogo;
+                if (event.currentTarget.getAttribute("src") !== iServiLogo) event.currentTarget.src = iServiLogo;
               }} />
             </span>
           )}

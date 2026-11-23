@@ -1,6 +1,6 @@
 @use '../styles/abstracts/variables';
 @use '../styles/abstracts/mixins';
-/* Acabamento do administrativo; mantém os tokens e layouts MesaFlow. */
+/* Acabamento do administrativo; mantém os tokens e layouts iServi. */
 html.admin-workspace-active {
   :is(.mf-dashboard-header, .orders-topbar, .tables-topbar, .products-topbar, .reports-topbar) {
     border-bottom: 1px solid color-mix(in srgb, var(--primary) 8%, transparent);

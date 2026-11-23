@@ -1,9 +1,10 @@
+import type { UserRole } from "../../../src/modules/users/entity/user.entity.js";
 import type { FastifyInstance } from "fastify";
 import { createUser } from "./fixtures.js";
 
 export async function createAuthenticatedUser(
   app: FastifyInstance,
-  role: "ADMIN" | "EMPLOYEE" = "ADMIN",
+  role: UserRole = "ADMIN",
 ) {
   const user = await createUser(role);
 

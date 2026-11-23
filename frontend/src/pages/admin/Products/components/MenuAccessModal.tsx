@@ -3,10 +3,11 @@ import { createPortal } from "react-dom";
 import QRCode from "qrcode";
 import { ExternalLink, QrCode, X } from "lucide-react";
 import { Button } from "@/components";
+import { clientPaths } from "@/routers/paths";
 
 export function MenuAccessModal({ onClose }: { onClose: () => void }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const url = new URL("/cardapio", window.location.origin).href;
+  const url = new URL(clientPaths.home, window.location.origin).href;
   const localOnly = ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
   const [image, setImage] = useState("");
   const [error, setError] = useState("");
@@ -44,9 +45,9 @@ export function MenuAccessModal({ onClose }: { onClose: () => void }) {
         <h2 id="menu-access-title"><QrCode aria-hidden="true" />Ver cardápio</h2>
         <Button variant="ghost" aria-label="Fechar" onClick={onClose}><X aria-hidden="true" /></Button>
       </header>
-      <p id="menu-access-description">Escaneie o QR Code com a câmera do celular para abrir o cardápio.</p>
+      <p id="menu-access-description">Escaneie o QR Code com a câmera do celular para abrir a tela de boas-vindas.</p>
       <div className="menu-access-qr">
-        {image ? <img src={image} width={280} height={280} alt="QR Code para abrir o cardápio" />
+        {image ? <img src={image} width={280} height={280} alt="QR Code para abrir a tela de boas-vindas" />
           : !error && <p role="status">Gerando QR Code…</p>}
       </div>
       {error && <p role="alert">{error}</p>}

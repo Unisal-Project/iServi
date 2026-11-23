@@ -40,7 +40,7 @@ export async function readPaymentConfirmation(attendanceId: bigint) {
         totalInCents: Math.round(Number(row.total) * 100),
         tableNumber: String(row.tableNumber),
         paidAt: row.paidAt.toISOString(),
-        restaurantName: row.restaurantName || "MesaFlow",
+        restaurantName: row.restaurantName || "iServi",
         timeZone: row.timeZone || "America/Sao_Paulo",
       },
     },

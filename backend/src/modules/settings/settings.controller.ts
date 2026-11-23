@@ -6,6 +6,13 @@ export class SettingsController {
   async get(_request: FastifyRequest, reply: FastifyReply) {
     return reply.send(await this.service.get());
   }
+  async getOperation(request: FastifyRequest, reply: FastifyReply) {
+    const { dayCutoffHour, serviceFeeRate } = await this.service.get();
+    return reply.send({
+      dayCutoffHour,
+      ...(request.user.role !== "PLATFORM_ADMIN" && { serviceFeeRate }),
+    });
+  }
   async getPublic(_request: FastifyRequest, reply: FastifyReply) {
     return reply.send(await this.service.getPublic());
   }
@@ -13,6 +20,10 @@ export class SettingsController {
     return reply.send(
       await this.service.save(settingsSchema.parse(request.body)),
     );
+  }
+
+  async removeBanner(_request: FastifyRequest, reply: FastifyReply) {
+    return reply.send(await this.service.removeBanner());
   }
 
   async uploadBanner(request: FastifyRequest, reply: FastifyReply) {
